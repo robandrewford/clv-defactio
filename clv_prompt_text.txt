@@ -1,0 +1,85 @@
+#INTRO
+
+The project focuses on building a Hierarchical Bayesian Customer Lifetime Value (CLV) Modeling System using PyMC. The system aims to provide robust, probabilistic insights into customer purchasing behavior and lifetime value by leveraging Bayesian hierarchical models, advanced MCMC techniques (like the No-U-Turn Sampler), and modern diagnostics to ensure reliable statistical inference. 
+
+#APPROACH
+
+Re-write this prompt to be in the best format for the Cursor.ai IDE. It should follow a progression of steps from initial setup of the .vscode project, GitHub repo, and logical progression of implementation steps all the way to deployment on Google Cloud Platform (GCP). 
+
+#OVERVIEW
+
+The system incorporates segmentation strategies (e.g., RFM segmentation), feature engineering, and supports flexible configuration for modeling, resource optimization, and diagnostics. 
+
+#GOAL
+
+The goal is to create an efficient, scalable, and interpretable tool for analyzing CLV, even under challenging data or resource constraints. 
+
+#STEPS
+
+1. Develop a Hierarchical Bayesian Model: 
+
+• Accurately estimate customer-specific and segment-specific CLV metrics. • Capture variability across customer groups using hierarchical priors. 
+
+2. Improve Computational Efficiency: 
+
+• Implement memory-efficient techniques like gradient accumulation and data rescaling. 
+
+• Optimize sampler performance through parameter tuning and reparameterization strategies. 
+
+3. Provide Diagnostics and Robustness: 
+
+• Ensure convergence and sampling efficiency using metrics like Effective Sample Size (ESS) and R-hat. 
+
+• Utilize non-centered parameterizations and posterior diagnostics to address issues like poor mixing or high autocorrelation. 
+
+4. Enable Flexibility and Scalability: 
+
+• Design a system that supports dynamic configuration for different datasets and modeling needs. 
+
+• Allow integration of resource monitoring and optimization features for high-performance computing environments.  
+
+#OBJECTIVES: 
+
+Modeling
+
+• Create a flexible framework for defining hierarchical priors and likelihoods. • Support non-centered parameterizations to improve posterior geometry and sampler efficiency. 
+
+2. Computational Objectives: 
+
+• Implement gradient accumulation and data rescaling to handle large datasets within limited memory. 
+
+• Optimize sampler configuration (e.g., target_accept, max_treedepth) for faster and more reliable convergence. 
+
+3. Diagnostic Objectives: 
+
+• Provide tools to visualize and quantify posterior convergence using ESS, R-hat, and autocorrelation plots. 
+
+• Develop diagnostic workflows that quickly identify and address model issues without requiring full training runs. 
+
+4. Usability Objectives: 
+
+• Support dynamic configurations via a CLVConfig class to streamline experimentation. 
+
+• Automate short cycle training runs that will generate diagnostics which may be fed into an LLM to produce informed recommendations for adjustment of parameters in the CLVConfig class to speed up experimentation and find configs that lead to accurate trained models.
+
+• Enable easy integration of segmentation strategies (e.g., RFM analysis) into the modeling pipeline. 
+
+5. Business Objectives: • Deliver actionable insights on customer behavior and lifetime value to inform marketing and retention strategies. 
+
+• Provide interpretable outputs and summaries to facilitate decision-making for stakeholders. 
+
+1. Bayesian Statistics: 
+
+• Focus on hierarchical modeling, posterior distributions, and probabilistic reasoning. 
+
+2. Customer Analytics: 
+
+• Emphasis on Customer Lifetime Value estimation, segmentation, and behavioral modeling. 
+
+3. Computational Efficiency: 
+
+• Application of advanced sampling techniques (e.g., NUTS) and memory optimization methods for scalable modeling. 
+
+4. Software Engineering: 
+
+• Design and implement modular, reusable Python classes for streamlined data preparation, model building, diagnostics, and results reporting.
