@@ -1,0 +1,18 @@
+dp_config:
+  # Data processing parameters
+  MIN_FREQUENCY: 1
+  MIN_REVENUE: 1
+  MIN_TRANSACTION_VALUE: 1
+  OUTLIER_THRESHOLD: 3 # Number of IQRs for outlier detection
+
+  # Query parameters
+  PROJECT_ID: "logic-dna-240402"
+  DATASET: "CLV"
+  TABLE: "T_CLV_360"
+  LIMIT: 1500000
+  COHORT_MONTH: "2019-02-01"
+  MIN_PURCHASE_DATE: "2022-02-03"
+  MAX_PURCHASE_DATE: null # Defaults to current date if None
+  INCLUDE_ONLINE: true
+  INCLUDE_STORE: true
+  MIN_LOYALTY_POINTS: 0

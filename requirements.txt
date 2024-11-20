@@ -9,3 +9,4 @@ pytest>=7.3.1
 black>=23.3.0
 pytensor>=2.10.0
 arviz>=0.16.0
+google-cloud-bigquery>=3.27.0
