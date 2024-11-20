@@ -55,3 +55,7 @@ htmlcov/
 .coverage.*
 coverage.xml
 *.cover
+
+# API Keys
+*api-key*
+*.env
