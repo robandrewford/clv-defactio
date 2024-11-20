@@ -2,17 +2,17 @@
 
 # Environment Settings
 environment:
-  name: production  # or 'development', 'staging'
-  region: us-central1
-  project_id: your-project-id
+  name: production
+  region: "us-west1"
+  project_id: "logic-dna-240402"
   enable_monitoring: true
 
 # Infrastructure Settings
 infrastructure:
   # Compute Engine
   compute:
-    machine_type: n1-standard-4
-    gpu_type: NVIDIA_TESLA_T4
+    machine_type: "n1-standard-4"
+    gpu_type: "NVIDIA_TESLA_T4"
     gpu_count: 1
     disk_size_gb: 100
     disk_type: pd-ssd
@@ -21,25 +21,25 @@ infrastructure:
   cloud_run:
     min_instances: 1
     max_instances: 10
-    cpu: 2
-    memory: 4Gi
+    cpu: "2"
+    memory: "4Gi"
     timeout: 3600
     concurrency: 80
 
   # Vertex AI
   vertex_ai:
     endpoint_name: clv-prediction
-    machine_type: n1-standard-4
+    machine_type: "n1-standard-4"
     min_replicas: 1
     max_replicas: 5
-    accelerator_type: NVIDIA_TESLA_T4
+    accelerator_type: "NVIDIA_TESLA_T4"
     accelerator_count: 1
 
 # Networking
 networking:
   vpc_name: clv-vpc
   subnet_name: clv-subnet
-  region: us-central1
+  region: "us-west1"
   ip_range: 10.0.0.0/24
   enable_private_google_access: true
   cloud_nat: true
@@ -66,13 +66,15 @@ monitoring:
     - error_rate
     - model_accuracy
 
+  metrics_frequency: 60
+
   # Alerting
   alerts:
     error_rate:
       threshold: 0.01
       duration: 300s
     latency:
-      threshold: 1000ms
+      threshold: 300
       duration: 300s
 
   # Logging
@@ -105,7 +107,7 @@ load_balancing:
 
 # Deployment Strategy
 deployment:
-  strategy: rolling  # or 'blue_green', 'canary'
+  strategy: rolling # or 'blue_green', 'canary'
   rollback_enabled: true
   max_surge: 1
   max_unavailable: 0
@@ -120,7 +122,7 @@ deployment:
 # Backup & Recovery
 backup:
   enable: true
-  schedule: "0 0 * * *"  # Daily at midnight
+  schedule: "0 0 * * *" # Daily at midnight
   retention_days: 30
   backup_bucket: gs://your-project-backups
 

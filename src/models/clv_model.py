@@ -1,7 +1,9 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
 import pymc as pm
+import pytensor.tensor as pt
+import arviz as az
 
 from .base import BayesianModel
 
@@ -39,7 +41,7 @@ class CLVModel(BayesianModel):
             
             # Expected value
             mu = (segment_effects[data["segment_ids"]] + 
-                 pm.dot(data["customer_features"], beta))
+                 pt.dot(data["customer_features"], beta))
             
             # Likelihood
             sigma = pm.HalfNormal("sigma", sigma=5)
@@ -58,7 +60,7 @@ class CLVModel(BayesianModel):
                chains: int = 4,
                target_accept: float = 0.8,
                return_inferencedata: bool = True,
-               **kwargs) -> Any:
+               **kwargs: Any) -> Union[az.InferenceData, Any]:
         """
         Sample from the posterior distribution.
         
@@ -69,14 +71,13 @@ class CLVModel(BayesianModel):
         """
         if self.model is None:
             raise ValueError("Model hasn't been built yet.")
-            
         with self.model:
             self.trace = pm.sample(
                 draws=draws,
                 tune=tune,
                 chains=chains,
                 target_accept=target_accept,
-                return_inferencedata=return_inferencedata,
+                return_inferencedata=True,
                 **kwargs
             )
             
@@ -103,12 +104,14 @@ class CLVModel(BayesianModel):
         if self.trace is None:
             raise ValueError("Model hasn't been sampled yet.")
             
-        # Extract posterior samples
-        segment_effects = self.trace.posterior["segment_effects"].mean(dim=["chain", "draw"]).values
-        beta = self.trace.posterior["beta"].mean(dim=["chain", "draw"]).values
+        # Extract posterior samples using arviz
+        trace_data = az.extract(self.trace)
+        segment_effects = trace_data["segment_effects"].mean().values
+        beta = trace_data["beta"].mean().values
         
         # Generate predictions
         predictions = (segment_effects[new_data["segment_ids"]] + 
                       np.dot(new_data["customer_features"], beta))
         
-        return predictions 
+        return predictions
+        

@@ -35,7 +35,7 @@ class BayesianModel(ABC):
             raise ValueError("Model hasn't been sampled yet.")
         
         return {
-            "r_hat": pm.stats.rhat(self.trace),
-            "ess": pm.stats.ess(self.trace)
+            "r_hat": az.rhat(self.trace),
+            "ess": az.ess(self.trace)
         }
     

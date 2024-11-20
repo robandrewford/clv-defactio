@@ -4,11 +4,11 @@
 data_processing:
   # Input data settings
   input:
-    source_type: bigquery  # or 'csv', 'parquet'
-    project_id: your-project-id
+    source_type: bigquery
+    project_id: "logic-dna-240402"
     dataset_id: clv_dataset
     table_id: transactions
-    batch_size: 10000
+    batch_size: 1000
     max_workers: 4
 
   # Data cleaning settings
@@ -16,7 +16,7 @@ data_processing:
     remove_duplicates: true
     handle_missing_values: true
     remove_outliers: true
-    outlier_method: iqr  # or 'zscore', 'isolation_forest'
+    outlier_method: iqr # or 'zscore', 'isolation_forest'
     outlier_threshold: 3.0
 
   # Data validation settings
@@ -61,20 +61,20 @@ feature_engineering:
 
 # Vertex AI Pipeline Settings
 vertex_pipeline:
-  project_id: your-project-id
-  region: us-central1
+  project_id: "logic-dna-240402"
+  region: "us-west1"
   pipeline_root: gs://your-bucket/pipeline_root
 
   # Pipeline resources
   resources:
-    machine_type: n1-standard-4
-    accelerator_type: NVIDIA_TESLA_T4
+    machine_type: "n1-standard-4"
+    accelerator_type: "NVIDIA_TESLA_T4"
     accelerator_count: 1
 
   # Pipeline scheduling
   scheduling:
     enable_cron: true
-    cron_schedule: "0 0 * * *"  # Daily at midnight
+    cron_schedule: "0 0 * * *" # Daily at midnight
     timeout_seconds: 3600
 
   # Pipeline monitoring
@@ -86,6 +86,10 @@ vertex_pipeline:
       - processing_time
       - error_rate
       - data_drift
+    metrics_frequency: 60
+    alert_thresholds:
+      error_rate: 0.01
+      latency: 300
 
 # Storage Configuration
 storage:
@@ -113,7 +117,7 @@ error_handling:
   retry_count: 3
   retry_delay_seconds: 60
   alert_on_failure: true
-  fallback_strategy: skip  # or 'retry', 'abort'
+  fallback_strategy: skip # or 'retry', 'abort'
 
 # Performance Settings
 performance:
@@ -121,13 +125,13 @@ performance:
   cache_ttl_hours: 24
   parallel_processing: true
   max_parallel_jobs: 4
-  memory_limit_gb: 32
+  memory_limit_gb: 4
 
 # Security Settings
 security:
   enable_encryption: true
   encryption_key_name: projects/your-project/locations/global/keyRings/clv-keyring/cryptoKeys/clv-key
-  use_cmek: true  # Customer-managed encryption keys
+  use_cmek: true # Customer-managed encryption keys
   required_roles:
     - roles/bigquery.dataViewer
     - roles/storage.objectViewer
