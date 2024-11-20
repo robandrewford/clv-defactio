@@ -59,3 +59,8 @@ coverage.xml
 # API Keys
 *api-key*
 *.env
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
