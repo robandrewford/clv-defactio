@@ -1,0 +1,18 @@
+# configs/development.yaml
+development:
+  test_bucket: "dev-test-bucket"
+  test_dataset: "dev_dataset"
+  use_emulators: false  # Set to true to use local emulators
+
+pipeline:
+  batch_size: 100
+  use_local_processing: true
+  save_intermediates: true
+
+model:
+  use_local_training: true
+  save_checkpoints: true
+
+monitoring:
+  local_logging: true
+  log_level: "DEBUG"

@@ -1,0 +1,133 @@
+# Model Configuration Settings
+
+# Default segment configuration
+segment_config:
+  use_rfm: true
+  rfm_bins:
+    frequency: 4
+    recency: 4
+    monetary: 4
+  use_engagement: true
+  engagement_bins: 4
+  engagement_metrics:
+    - sms_active
+    - email_active
+    - is_loyalty_member
+  use_channel: true
+  use_loyalty: true
+  loyalty_bins: 4
+  use_cohorts: true
+  cohort_type: quarterly
+  use_combined: true
+  min_segment_size: 200
+  merge_small_segments: true
+
+# Model training parameters
+training:
+  mcmc_samples: 2000
+  mcmc_tune: 1000
+  chains: 4
+  cores: 4
+  target_accept: 0.8
+  random_seed: 42
+  gpu_enabled: true
+  batch_size: 1024
+
+# Required data columns
+required_columns:
+  transaction:
+    - customer_id
+    - transaction_date
+    - transaction_amount
+    - frequency
+    - recency
+    - customer_age_days
+    - monetary
+    - avg_transaction_value
+  customer:
+    - customer_id
+    - first_purchase_date
+    - last_purchase_date
+    - cohort_month
+    - distinct_categories
+    - distinct_brands
+    - avg_interpurchase_days
+    - has_online_purchases
+    - has_store_purchases
+  engagement:
+    - customer_id
+    - sms_active
+    - email_active
+    - is_loyalty_member
+    - loyalty_points
+
+# Data validation rules
+validation:
+  value_ranges:
+    monetary:
+      min: 0
+      max: 1000000
+    frequency:
+      min: 1
+      max: 1000
+    recency:
+      min: 0
+      max: 3650  # 10 years
+  missing_value_strategy:
+    monetary: median
+    frequency: zero
+    recency: median
+    loyalty_points: zero
+
+# Feature engineering settings
+feature_engineering:
+  scaling:
+    method: standard  # or minmax, robust
+    features_to_scale:
+      - monetary
+      - frequency
+      - recency
+      - loyalty_points
+  binning:
+    monetary_bins: 10
+    frequency_bins: 5
+    recency_bins: 5
+  feature_selection:
+    method: random_forest
+    n_features: 10
+    importance_threshold: 0.01
+
+# Model hyperparameters
+hyperparameters:
+  prior_settings:
+    alpha_shape: 1.0
+    alpha_rate: 1.0
+    beta_shape: 1.0
+    beta_rate: 1.0
+  regularization:
+    l1: 0.01
+    l2: 0.01
+  optimization:
+    learning_rate: 0.01
+    max_iterations: 1000
+    convergence_tolerance: 1e-6
+
+# Monitoring settings
+monitoring:
+  track_convergence: true
+  save_chains: true
+  diagnostics:
+    - r_hat
+    - effective_sample_size
+    - mcse
+  alert_thresholds:
+    r_hat_max: 1.1
+    min_effective_samples: 400
+
+# Output settings
+output:
+  save_format: pickle
+  compression: true
+  include_diagnostics: true
+  export_predictions: true
+  prediction_format: csv
