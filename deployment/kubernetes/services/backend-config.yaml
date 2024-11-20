@@ -1,0 +1,22 @@
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: clv-backend-config
+  namespace: clv-360
+spec:
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /health
+    port: 8080
+  cdn:
+    enabled: true
+    cachePolicy:
+      includeHost: true
+      includeProtocol: true
+      includeQueryString: false
+  securityPolicy:
+    name: "clv-security-policy"
