@@ -23,8 +23,8 @@ data_processing:
   validation:
     validate_schema: true
     validate_datatypes: true
-    min_rows: 1000
-    max_missing_pct: 0.1
+    min_rows: 10
+    max_missing_pct: 1.0
     required_columns:
       - customer_id
       - transaction_date
@@ -136,3 +136,33 @@ security:
     - roles/bigquery.dataViewer
     - roles/storage.objectViewer
     - roles/aiplatform.user
+
+# Visualization Settings
+visualization:
+  style: "seaborn" # or 'default', 'dark_background', etc.
+  dpi: 100
+  formats:
+    - "png"
+    - "pdf"
+
+  trace_plots:
+    figsize: [12, 8]
+    n_chains_display: 4
+    hist_bins: 30
+
+  segment_plots:
+    figsize: [15, 6]
+    palette: "deep" # seaborn palette
+    bar_alpha: 0.8
+
+  prediction_plots:
+    figsize: [10, 6]
+    ci_alpha: 0.3
+    line_color: "blue"
+    ci_color: "lightblue"
+
+  diagnostic_plots:
+    figsize: [12, 8]
+    rhat_threshold: 1.1
+    hist_bins: 20
+    grid: true

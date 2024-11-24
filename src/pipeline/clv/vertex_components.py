@@ -1,118 +1,125 @@
 from kfp import dsl
+from kfp import compiler
+from kfp.dsl import (
+    Input,
+    Output,
+    Dataset,
+    Model,
+    Metrics,
+    Artifact,
+    ClassificationMetrics
+)
+import joblib
+import yaml
 import pandas as pd
-from typing import Dict
-from .config import CLVConfigLoader
-from .registry import CLVModelRegistry
+import numpy as np
+from typing import Dict, Any
+
+__all__ = ['hierarchical_clv_pipeline']
 
 @dsl.component(
-    base_image="python:3.9",
-    packages_to_install=["pandas", "numpy", "pymc", "scikit-learn", "yaml"]
-)
-def segment_customers(
-    data_path: str,
-    config_dir: str,
-    output_path: str
-) -> str:
-    """Vertex AI component for customer segmentation"""
-    from .segmentation import CustomerSegmentation
-    
-    # Load configs
-    config_loader = CLVConfigLoader(config_dir)
-    
-    # Load data
-    df = pd.read_parquet(data_path)
-    
-    # Create segments
-    segmenter = CustomerSegmentation(config_loader)
-    segmented_df = segmenter.create_segments(df)
-    
-    # Save results
-    segmented_df.to_parquet(output_path)
-    return output_path
-
-@dsl.component(
-    base_image="python:3.9",
-    packages_to_install=["pandas", "numpy", "pymc", "scikit-learn", "yaml"]
-)
-def train_clv_model(
-    data_path: str,
-    config_dir: str,
-    model_dir: str
-) -> str:
-    """Vertex AI component for CLV model training"""
-    from .model import HierarchicalCLVModel
-    from .config import CLVConfigLoader
-    from .registry import CLVModelRegistry
-    
-    # Load configs and data
-    config_loader = CLVConfigLoader(config_dir)
-    df = pd.read_parquet(data_path)
-    
-    # Train model
-    model = HierarchicalCLVModel(config_loader)
-    model.build_model(df)
-    metrics = model.train_model()
-    
-    # Save to registry
-    registry = CLVModelRegistry(config_loader)
-    version = registry.save_model(model, metrics)
-    
-    return version
-
-@dsl.component(
-    base_image="python:3.9",
-    packages_to_install=["pandas", "numpy", "scikit-learn", "yaml"]
+    base_image='python:3.10',
+    packages_to_install=['pandas', 'numpy', 'scikit-learn', 'joblib']
 )
 def preprocess_data(
     data_path: str,
-    config_dir: str,
-    output_path: str
-) -> str:
-    """Vertex AI component for data preprocessing"""
-    from .preprocessing import CLVDataPreprocessor
-    from .config import CLVConfigLoader
+    output_data: Output[Dataset],
+    config: dict
+) -> None:
+    """Preprocess data component for Vertex AI"""
+    from src.pipeline.clv import CLVDataPreprocessor
+    import pandas as pd
     
-    # Load configs and data
-    config_loader = CLVConfigLoader(config_dir)
+    # Load data from path
     df = pd.read_parquet(data_path)
     
-    # Preprocess data
-    preprocessor = CLVDataPreprocessor(config_loader)
-    processed_df = preprocessor.process_data(df)
+    # Process data
+    preprocessor = CLVDataPreprocessor(config)
+    processed_data = preprocessor.process_data(df)
     
-    # Save results
-    processed_df.to_parquet(output_path)
-    return output_path
+    # Save processed data
+    processed_data.to_parquet(output_data.path)
+
+@dsl.component(
+    base_image='python:3.10',
+    packages_to_install=['pandas', 'numpy', 'scikit-learn']
+)
+def create_segments(
+    input_data: Input[Dataset],
+    output_data: Output[Dataset],
+    model_data: Output[Dataset],
+    config: dict
+) -> None:
+    """Segment customers component for Vertex AI"""
+    from src.pipeline.clv import CustomerSegmentation
+    import pandas as pd
+    
+    # Load data
+    df = pd.read_parquet(input_data.path)
+    
+    # Create segments
+    segmenter = CustomerSegmentation(config)
+    segmented_data, model_data_dict = segmenter.create_segments(df)
+    
+    # Save outputs
+    segmented_data.to_parquet(output_data.path)
+    pd.DataFrame(model_data_dict).to_parquet(model_data.path)
+
+@dsl.component(
+    base_image='python:3.10',
+    packages_to_install=['pandas', 'numpy', 'scikit-learn', 'pymc']
+)
+def train_model(
+    input_data: Input[Dataset],
+    model: Output[Model],
+    metrics: Output[Metrics],
+    config: dict
+) -> None:
+    """Train CLV model component for Vertex AI"""
+    from src.pipeline.clv import HierarchicalCLVModel
+    import pandas as pd
+    import json
+    
+    # Load data
+    model_data = pd.read_parquet(input_data.path)
+    
+    # Train model
+    clv_model = HierarchicalCLVModel(config)
+    clv_model.build_model(model_data)
+    trace = clv_model.sample(draws=1000, tune=500)
+    
+    # Save model
+    with open(model.path, 'wb') as f:
+        joblib.dump(clv_model, f)
+    
+    # Save metrics
+    eval_metrics = clv_model.evaluate_model(model_data)
+    with open(metrics.path, 'w') as f:
+        json.dump(eval_metrics, f)
 
 @dsl.pipeline(
-    name='hierarchical-clv-pipeline',
-    description='End-to-end hierarchical CLV prediction pipeline'
+    name='CLV Pipeline',
+    description='End-to-end CLV prediction pipeline'
 )
 def hierarchical_clv_pipeline(
-    project_id: str,
-    input_table: str,
-    output_bucket: str,
-    config_dir: str
-):
-    """Define the Vertex AI Pipeline for CLV"""
-    
-    # Preprocess data
-    preprocess_task = preprocess_data(
-        data_path=input_table,
-        config_dir=config_dir,
-        output_path=f"{output_bucket}/preprocessed_data.parquet"
+    data_path: str,
+    config_dict: dict
+) -> Output[Model]:
+    """Define the CLV pipeline for Vertex AI"""
+    # Define pipeline steps
+    preprocess_op = preprocess_data(
+        data_path=data_path,
+        config=config_dict
     )
     
-    # Segment customers
-    segment_task = segment_customers(
-        data_path=preprocess_task.output,
-        config_dir=config_dir,
-        output_path=f"{output_bucket}/segmented_data.parquet"
+    segment_op = create_segments(
+        input_data=preprocess_op.outputs['output_data'],
+        config=config_dict
     )
     
-    # Train CLV model
-    train_task = train_clv_model(
-        data_path=segment_task.output,
-        config_dir=config_dir,
-        model_dir=f"{output_bucket}/model"
-    ) 
+    train_op = train_model(
+        input_data=segment_op.outputs['model_data'],
+        config=config_dict
+    )
+    
+    return train_op.outputs['model']

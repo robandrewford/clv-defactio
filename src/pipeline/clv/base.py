@@ -1,22 +1,29 @@
-import pandas as pd
 from abc import ABC, abstractmethod
+import pandas as pd
 from typing import Dict, Any, Optional
 
-class CLVProcessor(ABC):
-    """Abstract base class for CLV processing"""
+class BaseProcessor(ABC):
+    """Base class for data processing components"""
     
     @abstractmethod
-    def process_data(self, data: pd.DataFrame) -> pd.DataFrame:
+    def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Process input data"""
         pass
+
+class BaseModel(ABC):
+    """Base class for model components"""
     
     @abstractmethod
     def build_model(self) -> Any:
+        """Build the model"""
         pass
         
     @abstractmethod
     def train_model(self) -> Any:
+        """Train the model"""
         pass
         
     @abstractmethod
     def evaluate_model(self) -> Dict[str, Any]:
-        pass 
+        """Evaluate the model"""
+        pass

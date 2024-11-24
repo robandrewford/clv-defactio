@@ -1,157 +1,98 @@
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Tuple, Any
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import LabelEncoder
-from .config import CLVConfigLoader
+from .base import BaseProcessor
 
-class CustomerSegmentation:
-    """Handles customer segmentation and covariate preparation"""
+class CustomerSegmentation(BaseProcessor):
+    """Customer segmentation component"""
     
-    def __init__(self, config_loader: CLVConfigLoader):
+    def __init__(self, config_loader):
         self.config = config_loader
-        self.segment_config = config_loader.segment_config
-        self.encoders = {}
-        self.segment_stats = {}
+        self.segment_config = config_loader.model_config['segment_config']
         
-    def create_segments(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, np.ndarray]]:
-        """Create segments and prepare covariates for modeling"""
+    def process_data(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+        """Process and segment customer data"""
+        return self.create_segments(df)
+        
+    def create_segments(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+        """Create customer segments based on RFM and other metrics"""
         df = df.copy()
         
-        # Create base segments
-        if self.segment_config['segment_config']['use_rfm']:
-            df = self._create_rfm_segments(df)
+        # Validate input data
+        if (df['frequency'] < 0).any():
+            raise ValueError("Frequency values cannot be negative")
             
-        if self.segment_config['segment_config']['use_engagement']:
-            df = self._create_engagement_segments(df)
+        # Add validation for other metrics as needed
+        if (df['transaction_amount'] < 0).any():
+            raise ValueError("Transaction amounts cannot be negative")
             
-        if self.segment_config['segment_config']['use_loyalty']:
-            df = self._create_loyalty_segments(df)
+        # Calculate RFM scores
+        df = self._calculate_rfm_scores(df)
+        
+        # Add engagement metrics if configured
+        if self.segment_config.get('use_engagement', False):
+            df = self._add_engagement_scores(df)
             
-        if self.segment_config['segment_config']['use_cohorts']:
-            df = self._create_cohort_groups(df)
-            
-        # Prepare covariates for modeling
-        model_data = self._prepare_model_covariates(df)
+        # Create final segments
+        model_data = self._prepare_model_data(df)
         
         return df, model_data
-    
-    def _create_rfm_segments(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Create RFM segments with numeric scoring"""
-        # Calculate RFM scores
-        r_labels = range(1, self.segment_config['segment_config']['rfm_bins']['recency'] + 1)
-        f_labels = range(1, self.segment_config['segment_config']['rfm_bins']['frequency'] + 1)
-        m_labels = range(1, self.segment_config['segment_config']['rfm_bins']['monetary'] + 1)
         
-        df['R_score'] = pd.qcut(df['recency'], q=len(r_labels), labels=r_labels)
-        df['F_score'] = pd.qcut(df['frequency'], q=len(f_labels), labels=f_labels)
-        df['M_score'] = pd.qcut(df['monetary'], q=len(m_labels), labels=m_labels)
+    def _calculate_rfm_scores(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate RFM scores for segmentation"""
+        # Calculate R score
+        df['R_score'] = pd.qcut(df['recency'], 4, labels=False, duplicates='drop')
         
-        # Create combined RFM score
-        df['RFM_score'] = (
-            df['R_score'].astype(str) + 
-            df['F_score'].astype(str) + 
-            df['M_score'].astype(str)
-        )
+        # Calculate F score
+        df['F_score'] = pd.qcut(df['frequency'], 4, labels=False, duplicates='drop')
         
-        # Store segment statistics
-        self.segment_stats['rfm'] = {
-            'r_quantiles': df.groupby('R_score')['recency'].agg(['mean', 'count']),
-            'f_quantiles': df.groupby('F_score')['frequency'].agg(['mean', 'count']),
-            'm_quantiles': df.groupby('M_score')['monetary'].agg(['mean', 'count'])
-        }
+        # Calculate M score
+        df['M_score'] = pd.qcut(df['monetary'], 4, labels=False, duplicates='drop')
+        
+        # Combined RFM score
+        df['RFM_score'] = (df['R_score'].astype(str) + 
+                          df['F_score'].astype(str) + 
+                          df['M_score'].astype(str))
         
         return df
-    
-    def _create_engagement_segments(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Create engagement segments with behavioral metrics"""
-        metrics = self.segment_config['segment_config']['engagement_metrics']
         
-        # Calculate engagement score
-        df['engagement_score'] = 0
-        for metric in metrics:
-            if metric in df.columns:
-                df['engagement_score'] += df[metric].astype(float)
-                
-        # Create engagement levels
-        n_bins = self.segment_config['segment_config']['engagement_bins']
-        df['engagement_level'] = pd.qcut(
-            df['engagement_score'],
-            q=n_bins,
-            labels=[f'Level_{i+1}' for i in range(n_bins)]
+    def _add_engagement_scores(self, data):
+        """
+        Add engagement scores based on customer interactions
+        
+        Args:
+            data (pd.DataFrame): Processed customer data
+            
+        Returns:
+            pd.DataFrame: Data with engagement scores added
+        """
+        data['engagement_score'] = (
+            data['sms_active'].astype(int) * 0.3 +
+            data['email_active'].astype(int) * 0.3 +
+            data['is_loyalty_member'].astype(int) * 0.4
         )
+        return data
         
-        # Store segment statistics
-        self.segment_stats['engagement'] = {
-            'level_stats': df.groupby('engagement_level')['engagement_score'].agg(['mean', 'count'])
-        }
+    def _prepare_model_data(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Prepare data for model training
         
-        return df
-    
-    def _prepare_model_covariates(self, df: pd.DataFrame) -> Dict[str, np.ndarray]:
-        """Prepare covariates for the hierarchical model"""
-        # Initialize model data
+        Args:
+            df (pd.DataFrame): Processed and segmented customer data
+            
+        Returns:
+            Dict[str, Any]: Dictionary containing model-ready data
+        """
         model_data = {
             'customer_id': df['customer_id'].values,
             'frequency': df['frequency'].values,
             'recency': df['recency'].values,
-            'monetary_value': df['monetary'].values,
-            'T': df['customer_age_days'].values
+            'monetary': df['monetary'].values,
+            'rfm_score': df['RFM_score'].values
         }
         
-        # Encode categorical segments for modeling
-        segment_columns = []
-        
-        if self.segment_config['segment_config']['use_rfm']:
-            segment_columns.extend(['R_score', 'F_score', 'M_score'])
+        # Add engagement score if available
+        if 'engagement_score' in df.columns:
+            model_data['engagement_score'] = df['engagement_score'].values
             
-        if self.segment_config['segment_config']['use_engagement']:
-            segment_columns.append('engagement_level')
-            
-        if self.segment_config['segment_config']['use_loyalty']:
-            segment_columns.append('loyalty_segment')
-            
-        if self.segment_config['segment_config']['use_cohorts']:
-            segment_columns.append('cohort_segment')
-            
-        # Encode segments
-        encoded_segments = pd.DataFrame()
-        for col in segment_columns:
-            if col in df.columns:
-                encoder = LabelEncoder()
-                encoded_segments[f'{col}_encoded'] = encoder.fit_transform(df[col])
-                self.encoders[col] = encoder
-                
-        # Create segment IDs from combination of encoded segments
-        if len(encoded_segments.columns) > 0:
-            model_data['segment_ids'] = encoded_segments.apply(
-                lambda x: '_'.join(x.astype(str)), axis=1
-            ).astype('category').cat.codes
-        else:
-            model_data['segment_ids'] = np.zeros(len(df))
-            
-        # Add customer features as covariates
-        feature_columns = [
-            'category_diversity', 'brand_loyalty', 'price_sensitivity',
-            'average_order_value', 'customer_lifetime'
-        ]
-        
-        customer_features = []
-        for col in feature_columns:
-            if col in df.columns:
-                customer_features.append(df[col].values.reshape(-1, 1))
-                
-        if customer_features:
-            model_data['customer_features'] = np.hstack(customer_features)
-        
         return model_data
-    
-    def get_segment_summary(self) -> Dict[str, pd.DataFrame]:
-        """Get summary statistics for all segments"""
-        return self.segment_stats
-    
-    def decode_segments(self, segment_ids: np.ndarray) -> pd.DataFrame:
-        """Decode segment IDs back to original labels"""
-        decoded = pd.DataFrame()
-        for col, encoder in self.encoders.items():
-            decoded[col] = encoder.inverse_transform(segment_ids)
-        return decoded

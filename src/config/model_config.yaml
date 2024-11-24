@@ -72,7 +72,7 @@ validation:
       max: 1000
     recency:
       min: 0
-      max: 3650  # 10 years
+      max: 3650 # 10 years
   missing_value_strategy:
     monetary: median
     frequency: zero
@@ -82,7 +82,7 @@ validation:
 # Feature engineering settings
 feature_engineering:
   scaling:
-    method: standard  # or minmax, robust
+    method: standard # or minmax, robust
     features_to_scale:
       - monetary
       - frequency
@@ -131,3 +131,9 @@ output:
   include_diagnostics: true
   export_predictions: true
   prediction_format: csv
+
+model_type: "clv_predictor"
+parameters:
+  learning_rate: 0.001
+  batch_size: 32
+  # ... other parameters

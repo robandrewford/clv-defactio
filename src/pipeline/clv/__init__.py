@@ -2,16 +2,18 @@ from .runner import HierarchicalCLVRunner
 from .model import HierarchicalCLVModel
 from .segmentation import CustomerSegmentation
 from .config import CLVConfigLoader
-from .base import CLVProcessor
+from .preprocessing import CLVDataPreprocessor
 from .registry import CLVModelRegistry
+from .visualization import CLVVisualization
 
 __all__ = [
     'HierarchicalCLVRunner',
     'HierarchicalCLVModel',
     'CustomerSegmentation',
     'CLVConfigLoader',
-    'CLVProcessor',
-    'CLVModelRegistry'
+    'CLVDataPreprocessor',
+    'CLVModelRegistry',
+    'CLVVisualization'
 ]
 
 # Version info

@@ -4,7 +4,11 @@ import time
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
-from src.pipeline.clv.runner import HierarchicalCLVRunner
+from src.pipeline.clv import (
+    HierarchicalCLVRunner,
+    CLVDataPreprocessor,
+    CustomerSegmentation
+)
 from src.monitoring.alerts import send_alert
 
 # Configure logging

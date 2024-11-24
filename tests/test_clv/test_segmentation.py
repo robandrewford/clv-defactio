@@ -1,45 +1,74 @@
 import pytest
 import numpy as np
-from src.pipeline.clv.segmentation import CustomerSegmentation
+import pandas as pd
+from src.pipeline.clv import CustomerSegmentation
+from src.pipeline.clv.base import BaseProcessor
 
-def test_segmentation_initialization(config_loader):
-    """Test segmentation initialization"""
-    segmenter = CustomerSegmentation(config_loader)
-    assert segmenter is not None
-    assert segmenter.segment_config is not None
+class TestCustomerSegmentation:
+    """Test suite for CustomerSegmentation"""
 
-def test_rfm_segmentation(config_loader, sample_customer_features):
-    """Test RFM segmentation"""
-    segmenter = CustomerSegmentation(config_loader)
-    df, model_data = segmenter.create_segments(sample_customer_features)
-    
-    # Check RFM scores exist
-    assert 'R_score' in df.columns
-    assert 'F_score' in df.columns
-    assert 'M_score' in df.columns
-    assert 'RFM_score' in df.columns
-    
-    # Check model data structure
-    assert 'segment_ids' in model_data
-    assert 'customer_features' in model_data
+    def test_segmentation_initialization(self, config_loader):
+        """Test segmentation initialization"""
+        segmenter = CustomerSegmentation(config_loader)
+        assert isinstance(segmenter, BaseProcessor)
+        assert segmenter.segment_config is not None
 
-def test_engagement_segmentation(config_loader, sample_customer_features):
-    """Test engagement segmentation"""
-    # Add engagement metrics
-    data = sample_customer_features.copy()
-    data['sms_active'] = np.random.randint(0, 2, len(data))
-    data['email_active'] = np.random.randint(0, 2, len(data))
-    
-    segmenter = CustomerSegmentation(config_loader)
-    df, _ = segmenter.create_segments(data)
-    
-    assert 'engagement_score' in df.columns
-    assert 'engagement_level' in df.columns
+    def test_process_data_interface(self, config_loader, sample_customer_features):
+        """Test process_data method implementation"""
+        segmenter = CustomerSegmentation(config_loader)
+        result = segmenter.process_data(sample_customer_features)
+        
+        # Should return tuple of (DataFrame, Dict)
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        assert isinstance(result[0], pd.DataFrame)
+        assert isinstance(result[1], dict)
 
-def test_segment_decoding(config_loader, sample_customer_features):
-    """Test segment decoding functionality"""
-    segmenter = CustomerSegmentation(config_loader)
-    _, model_data = segmenter.create_segments(sample_customer_features)
-    
-    decoded = segmenter.decode_segments(model_data['segment_ids'])
-    assert not decoded.empty 
+    def test_rfm_segmentation(self, config_loader, sample_customer_features):
+        """Test RFM segmentation"""
+        segmenter = CustomerSegmentation(config_loader)
+        df, model_data = segmenter.create_segments(sample_customer_features)
+        
+        # Check RFM scores exist
+        assert 'R_score' in df.columns
+        assert 'F_score' in df.columns
+        assert 'M_score' in df.columns
+        assert 'RFM_score' in df.columns
+        
+        # Check model data structure
+        assert 'segment_ids' in model_data
+        assert 'customer_features' in model_data
+
+    def test_engagement_segmentation(self, config_loader, sample_customer_features):
+        """Test engagement segmentation"""
+        # Add engagement metrics
+        data = sample_customer_features.copy()
+        data['sms_active'] = np.random.randint(0, 2, len(data))
+        data['email_active'] = np.random.randint(0, 2, len(data))
+        
+        segmenter = CustomerSegmentation(config_loader)
+        df, _ = segmenter.create_segments(data)
+        
+        assert 'engagement_score' in df.columns
+        assert 'engagement_level' in df.columns
+
+    def test_segment_decoding(self, config_loader, sample_customer_features):
+        """Test segment decoding functionality"""
+        segmenter = CustomerSegmentation(config_loader)
+        _, model_data = segmenter.create_segments(sample_customer_features)
+        
+        decoded = segmenter.decode_segments(model_data['segment_ids'])
+        assert not decoded.empty
+
+    def test_processor_interface_compliance(self, config_loader):
+        """Test compliance with BaseProcessor interface"""
+        segmenter = CustomerSegmentation(config_loader)
+        
+        # Check required methods
+        assert hasattr(segmenter, 'process_data')
+        
+        # Check method signature
+        from inspect import signature
+        sig = signature(segmenter.process_data)
+        assert 'df' in sig.parameters
+        assert sig.return_annotation == pd.DataFrame

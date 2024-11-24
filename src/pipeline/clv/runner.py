@@ -1,8 +1,11 @@
 from typing import Dict, Optional, Any
 from datetime import datetime
 from google.cloud import aiplatform
-from .vertex_components import hierarchical_clv_pipeline
+from .vertex_components import hierarchical_clv_pipeline as hierarchical_clv_pipeline
 from .config import CLVConfigLoader
+from .model import HierarchicalCLVModel
+from .preprocessing import CLVDataPreprocessor
+from .segmentation import CustomerSegmentation
 
 class HierarchicalCLVRunner:
     """Runner for Hierarchical CLV Vertex AI Pipeline"""
@@ -25,6 +28,10 @@ class HierarchicalCLVRunner:
             project=self.project_id,
             location=self.location
         )
+        
+        self.processor = CLVDataPreprocessor(self.config_loader)
+        self.segmenter = CustomerSegmentation(self.config_loader)
+        self.model = HierarchicalCLVModel(self.config_loader)
     
     def run_pipeline(
         self,
