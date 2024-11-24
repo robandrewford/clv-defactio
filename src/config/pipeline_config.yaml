@@ -105,6 +105,11 @@ storage:
     results_table: model_predictions
     metrics_table: model_metrics
 
+  model_storage:
+    type: "local"
+    path: "models"
+    bucket_name: "default-bucket"
+
 # Logging Configuration
 logging:
   level: INFO
@@ -139,7 +144,7 @@ security:
 
 # Visualization Settings
 visualization:
-  style: "seaborn" # or 'default', 'dark_background', etc.
+  style: "default"
   dpi: 100
   formats:
     - "png"
@@ -152,7 +157,7 @@ visualization:
 
   segment_plots:
     figsize: [15, 6]
-    palette: "deep" # seaborn palette
+    palette: "deep"
     bar_alpha: 0.8
 
   prediction_plots:

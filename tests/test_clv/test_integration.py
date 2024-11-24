@@ -9,6 +9,7 @@ from src.pipeline.clv import (
     CLVModelRegistry
 )
 from src.pipeline.clv.base import BaseProcessor, BaseModel
+from src.pipeline.clv.config import CLVConfigLoader
 
 @pytest.mark.integration
 class TestCLVPipelineIntegration:
@@ -23,18 +24,21 @@ class TestCLVPipelineIntegration:
     ):
         """Test full pipeline from data preprocessing to model deployment"""
         try:
+            # Create a proper CLVConfigLoader instance
+            config = CLVConfigLoader()  # Use default config directory
+            
             # 1. Preprocess Data
-            preprocessor = CLVDataPreprocessor(config_loader)
+            preprocessor = CLVDataPreprocessor(config)
             assert isinstance(preprocessor, BaseProcessor)
             processed_data = preprocessor.process_data(sample_transaction_data)
             
             # 2. Create Segments
-            segmenter = CustomerSegmentation(config_loader)
+            segmenter = CustomerSegmentation(config)
             assert isinstance(segmenter, BaseProcessor)
             segmented_data, model_data = segmenter.create_segments(processed_data)
             
             # 3. Train Model
-            model = HierarchicalCLVModel(config_loader)
+            model = HierarchicalCLVModel(config)
             assert isinstance(model, BaseModel)
             model.build_model(model_data)
             
@@ -53,7 +57,7 @@ class TestCLVPipelineIntegration:
             assert 'predicted_value' in predictions.columns
             
             # 5. Save Model
-            registry = CLVModelRegistry(config_loader)
+            registry = CLVModelRegistry(config)
             metrics = {
                 'rmse': np.random.rand(),
                 'mae': np.random.rand(),

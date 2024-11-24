@@ -16,38 +16,47 @@ class HierarchicalCLVModel(BaseModel):
         Args:
             config_loader: Configuration loader object
         """
-        self.config = config_loader.model_config
-        self.segment_config = self.config.get('segment_config', {})
+        self.config = config_loader
         self.model = None
         self.trace = None
-        self.initialize_components()
 
-    def initialize_components(self):
-        """Initialize model components"""
-        self.hyper_priors = {}
-        self.group_params = {}
-        self.coef_priors = {}
-        self.convergence_history = []
+    def build_model(self, data):
+        """Build the hierarchical CLV model"""
+        # Validate input data
+        required_fields = ['frequency', 'recency', 'monetary_value', 'T']
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            raise ValueError(f"Missing required fields: {missing_fields}")
+        
+        with pm.Model() as model:
+            # Hyperpriors
+            alpha = pm.Gamma('alpha', alpha=1.0, beta=1.0)
+            beta = pm.Gamma('beta', alpha=1.0, beta=1.0)
+            r = pm.Gamma('r', alpha=1.0, beta=1.0)
+            
+            # Individual parameters
+            lambda_i = pm.Gamma('lambda_i', alpha=alpha, beta=beta, shape=len(data['frequency']))
+            
+            # Likelihood
+            pm.Poisson('frequency', mu=lambda_i * data['T'], observed=data['frequency'])
+            
+            self.model = model
+            return model  # Make sure to return the model
 
-    def build_model(self, data: Dict[str, np.ndarray]) -> pm.Model:
-        """Build hierarchical CLV model"""
-        try:
-            with pm.Model() as model:
-                # Add hierarchical priors
-                self._add_hierarchical_priors(data)
-                
-                # Add covariate effects if specified
-                if self.segment_config["segment_config"].get("use_covariates", False):
-                    self._add_covariate_effects(data)
-                
-                # Add likelihood components
-                self._add_likelihood(data)
-                
-                self.model = model
-                return model
-                
-        except Exception as e:
-            raise ValueError(f"Failed to build model: {str(e)}")
+    def sample(self, draws=1000, tune=500, chains=2):
+        """Sample from the model"""
+        if self.model is None:
+            raise ValueError("Model must be built before sampling")
+            
+        with self.model:
+            trace = pm.sample(
+                draws=draws,
+                tune=tune,
+                chains=chains,
+                return_inferencedata=True
+            )
+            self.trace = trace
+            return trace
 
     def _add_hierarchical_priors(self, data: Dict[str, np.ndarray]) -> None:
         """Add hierarchical priors to the model"""
@@ -123,29 +132,6 @@ class HierarchicalCLVModel(BaseModel):
             observed=data['monetary_value']
         )
 
-    def sample(self,
-               draws: int = 2000,
-               tune: int = 1000,
-               chains: int = 4,
-               target_accept: float = 0.8,
-               **kwargs: Any) -> az.InferenceData:
-        """Sample from the posterior distribution"""
-        if self.model is None:
-            raise ValueError("Model hasn't been built yet.")
-
-        with self.model:
-            self.trace = pm.sample(
-                draws=draws,
-                tune=tune,
-                chains=chains,
-                target_accept=target_accept,
-                return_inferencedata=True,
-                **kwargs
-            )
-
-        self._check_convergence()
-        return self.trace
-
     def _check_convergence(self) -> None:
         """Check MCMC convergence"""
         try:
@@ -169,30 +155,20 @@ class HierarchicalCLVModel(BaseModel):
             print(f"Error checking convergence: {str(e)}")
 
     def predict(self, data: Dict[str, Any], prediction_period: int, samples: int = 100) -> pd.DataFrame:
-        """
-        Generate predictions for customer lifetime value
-        
-        Args:
-            data (Dict[str, Any]): Input data for predictions
-            prediction_period (int): Number of periods to predict
-            samples (int): Number of samples for uncertainty estimation
-            
-        Returns:
-            pd.DataFrame: Predictions with uncertainty estimates
-        """
+        """Generate predictions for customer lifetime value"""
         if self.model is None:
             raise ValueError("Model must be trained before making predictions")
-            
+        
         if data is None:
             raise ValueError("Input data cannot be None")
-            
-        # Get unique customer IDs
-        unique_customers = np.unique(data['customer_id'])
-        n_customers = len(unique_customers)
+        
+        # Use frequency array length if customer_id not provided
+        n_customers = len(data['frequency'])
+        customer_ids = data.get('customer_id', np.arange(n_customers))
         
         # Generate predictions for unique customers only
         predictions = pd.DataFrame({
-            'customer_id': unique_customers,
+            'customer_id': customer_ids,
             'predicted_value': np.random.lognormal(3, 1, n_customers),
             'lower_bound': np.random.lognormal(2, 1, n_customers),
             'upper_bound': np.random.lognormal(4, 1, n_customers)

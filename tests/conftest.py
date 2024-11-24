@@ -27,12 +27,24 @@ def config_loader():
                 'segment_config': {
                     'use_engagement': True,
                     'use_covariates': False
+                },
+                'hyperparameters': {
+                    'r_alpha': 1.0,
+                    'r_beta': 1.0,
+                    'alpha_mu': 1.0,
+                    'alpha_sigma': 1.0,
+                    'beta_mu': 1.0,
+                    'beta_sigma': 1.0,
+                    'prior_settings': {
+                        'alpha_shape': 1.0,
+                        'beta_shape': 1.0
+                    }
                 }
             }
             self.pipeline_config = {
                 'data_processing': {
                     'validation': {
-                        'required_columns': ['customer_id', 'transaction_date', 'transaction_amount'],
+                        'required_columns': ['customer_id', 'transaction_date', 'transaction_amount', 'frequency', 'recency'],
                         'min_rows': 10,
                         'max_missing_pct': 0.1
                     },
@@ -45,26 +57,31 @@ def config_loader():
                     'time_features': {'enable': True, 'features': []},
                     'customer_features': {'enable': True, 'features': []},
                     'product_features': {'enable': True, 'features': []}
+                },
+                'storage': {
+                    'model_storage': {
+                        'type': 'local',
+                        'path': '/tmp/models'
+                    }
+                },
+                'visualization': {
+                    'plot_style': 'default',
+                    'color_palette': 'deep',
+                    'trace_plots': {
+                        'figsize': (12, 8),
+                        'dpi': 100,
+                        'n_chains_display': 4,
+                        'hist_bins': 30
+                    },
+                    'segment_plots': {
+                        'figsize': (15, 6),
+                        'dpi': 100,
+                        'palette': 'deep',
+                        'bar_alpha': 0.8
+                    }
                 }
             }
             
-        def get_storage_config(self):
-            return {
-                'model_storage': {
-                    'type': 'local',
-                    'path': '/tmp/models'
-                },
-                'registry': {
-                    'type': 'simple',
-                    'path': '/tmp/registry'
-                },
-                'gcs': {
-                    'bucket_name': 'test-bucket',
-                    'project_id': 'test-project',
-                    'model_prefix': 'models/clv'
-                }
-            }
-    
     return SimpleConfigLoader()
 
 @pytest.fixture
@@ -135,3 +152,20 @@ def mock_bigquery_client():
     mock_client.get_table.return_value = MagicMock()
     
     return mock_client 
+
+@pytest.fixture
+def sample_customer_features():
+    """Generate sample customer features for testing"""
+    n_samples = 100
+    return pd.DataFrame({
+        'customer_id': range(n_samples),
+        'frequency': np.random.randint(1, 10, n_samples),
+        'recency': np.random.randint(1, 365, n_samples),
+        'monetary': np.random.uniform(10, 1000, n_samples),
+        'transaction_amount': np.random.uniform(10, 1000, n_samples),
+        'customer_age_days': np.random.randint(1, 1000, n_samples),
+        'sms_active': np.random.choice([0, 1], n_samples),
+        'email_active': np.random.choice([0, 1], n_samples),
+        'transaction_date': pd.date_range(start='2023-01-01', periods=n_samples),
+        'is_loyalty_member': np.random.choice([0, 1], n_samples)
+    }) 

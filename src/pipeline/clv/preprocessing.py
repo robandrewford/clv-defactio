@@ -17,26 +17,57 @@ class CLVDataPreprocessor(BaseProcessor):
         self.test_mode = test_mode
         
     def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Process and clean the input data"""
+        """Process raw transaction data into CLV features"""
         df = df.copy()
-        self._validate_data(df)
         
-        # Remove rows with NaN values
-        df = df.dropna(subset=['transaction_amount'])
+        # Ensure required columns exist
+        required_cols = ['customer_id', 'transaction_date', 'transaction_amount']
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
         
-        # Calculate basic metrics first
-        df = self._calculate_basic_metrics(df)
+        # Calculate customer metrics
+        customer_metrics = df.groupby('customer_id').agg({
+            'transaction_date': ['count', 'min', 'max'],
+            'transaction_amount': ['sum', 'mean']
+        })
         
-        # Then handle outliers
-        df = self._handle_outliers(df)
+        # Flatten column names
+        customer_metrics.columns = [
+            'frequency',
+            'first_purchase',
+            'last_purchase',
+            'total_amount',
+            'monetary'
+        ]
         
-        # Engineer features
-        df = self._engineer_time_features(df)
-        df = self._engineer_customer_features(df)
-        df = self._engineer_product_features(df)
+        # Calculate recency
+        max_date = df['transaction_date'].max()
+        customer_metrics['recency'] = (
+            max_date - customer_metrics['last_purchase']
+        ).dt.days
+        customer_metrics['customer_age_days'] = (
+            max_date - customer_metrics['first_purchase']
+        ).dt.days
         
-        # Validate processed data
-        self._validate_data(df)
+        return customer_metrics.reset_index()
+    
+    def _calculate_rfm_metrics(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate frequency and recency metrics"""
+        # Get latest transaction date
+        latest_date = df['transaction_date'].max()
+        
+        # Calculate customer-level metrics
+        customer_metrics = df.groupby('customer_id').agg({
+            'customer_id': 'count',  # Use customer_id instead of transaction_id for frequency
+            'transaction_date': lambda x: (latest_date - x.max()).days  # Recency
+        }).reset_index()
+        
+        # Rename columns
+        customer_metrics.columns = ['customer_id', 'frequency', 'recency']
+        
+        # Merge back to original dataframe
+        df = df.merge(customer_metrics, on='customer_id', how='left')
         
         return df
     

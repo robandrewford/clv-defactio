@@ -69,7 +69,10 @@ class TestModelDiagnostics:
         )
         
         # Set style for plots
-        plt.style.use('seaborn')
+        try:
+            sns.set_style("whitegrid")
+        except ImportError:
+            plt.style.use('default')
         
         # Add config_loader attribute initialization
         self.config_loader = None

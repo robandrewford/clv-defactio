@@ -10,7 +10,44 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import numpy as np
-from ..conftest import ModelStatisticalAnalyzer, ModelMetadataAnalyzer  # Assuming these exist
+
+class ModelStatisticalAnalyzer:
+    def run_statistical_tests(self):
+        # Add test implementation
+        return {
+            'convergence_tests': {
+                'r_hat': {'trend_statistic': 0.5, 'trend_pvalue': 0.04},
+                'ess': {'autocorr_statistic': 0.3, 'autocorr_pvalue': 0.06}
+            },
+            'stationarity_tests': {
+                'duration': {'pvalue': 0.03}
+            }
+        }
+    
+    def get_performance_metrics(self):
+        # Add test implementation
+        return [0.8, 0.85, 0.9, 0.88, 0.92]
+    
+    def get_convergence_metrics(self):
+        # Add test implementation
+        return [1.5, 1.3, 1.2, 1.15, 1.08]
+
+class ModelMetadataAnalyzer:
+    def analyze_runs(self):
+        # Add test implementation
+        class Analysis:
+            def __init__(self):
+                self.run_summary = {
+                    'total_runs': [100],
+                    'successful_runs': [95],
+                    'avg_duration': [2.5],
+                    'avg_r_hat': [1.05]
+                }
+                self.recommendations = [
+                    "Sample recommendation 1",
+                    "Sample recommendation 2"
+                ]
+        return Analysis()
 
 class ModelAnalysisReport:
     """Generate PDF reports for model analysis"""

@@ -1,0 +1,3 @@
+segment_config:
+  use_covariates: false
+  use_engagement: true

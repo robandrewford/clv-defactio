@@ -15,7 +15,11 @@ def test_data_cleaning(config_loader, sample_transaction_data):
     processed_data = preprocessor.process_data(sample_transaction_data)
     
     assert not processed_data.empty
-    assert processed_data['transaction_amount'].isnull().sum() == 0
+    assert processed_data['monetary'].isnull().sum() == 0
+    
+    assert len(processed_data.columns) > 0
+    assert 'customer_id' in processed_data.columns
+    assert 'monetary' in processed_data.columns
     
 def test_feature_engineering(sample_transaction_data, config_loader):
     """Test feature engineering with transaction data"""

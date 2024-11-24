@@ -16,10 +16,15 @@ class CLVModelRegistry:
     
     def __init__(self, config_loader):
         self.config = config_loader
-        self.storage_config = config_loader.get_storage_config()
+        self.storage_config = config_loader.pipeline_config.get('storage', {})
+        
+        # Set default values
+        self.storage_type = self.storage_config.get('type', 'local')
+        self.storage_path = self.storage_config.get('path', '/tmp/models')
+        self.model_prefix = self.storage_config.get('model_prefix', 'models/clv')
         
         # Use local storage for testing
-        if self.storage_config['model_storage']['type'] == 'local':
+        if self.storage_config.get('model_storage', {}).get('type') == 'local':
             self.storage_type = 'local'
             self.storage_path = self.storage_config['model_storage']['path']
         else:

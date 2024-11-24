@@ -1,0 +1,17 @@
+{
+  "timestamp": "20241124_014859",
+  "config_hash": "dcf5799d",
+  "git_commit": "ff514c89",
+  "model_params": {},
+  "convergence_metrics": {},
+  "performance_metrics": {},
+  "hardware_info": {
+    "platform": "macOS-15.1.1-arm64-arm-64bit",
+    "processor": "arm",
+    "memory_total": "16.0GB",
+    "cpu_count": "8"
+  },
+  "duration": 0,
+  "status": "failed",
+  "notes": "Neither the `x` nor `y` variable appears to be numeric."
+}

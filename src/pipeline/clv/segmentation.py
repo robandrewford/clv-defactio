@@ -2,97 +2,64 @@ from typing import Dict, Tuple, Any
 import pandas as pd
 import numpy as np
 from .base import BaseProcessor
+from datetime import datetime
 
 class CustomerSegmentation(BaseProcessor):
     """Customer segmentation component"""
     
-    def __init__(self, config_loader):
-        self.config = config_loader
-        self.segment_config = config_loader.model_config['segment_config']
+    def __init__(self, config):
+        """Initialize segmentation with config"""
+        super().__init__(config)
+        self.config = config
+
+    def process_data(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
+        """Process customer data and return segmented data with metadata"""
+        processed_data = data.copy()
         
-    def process_data(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-        """Process and segment customer data"""
-        return self.create_segments(df)
+        # Calculate engagement score
+        processed_data['engagement_score'] = self._calculate_engagement_score(processed_data)
         
-    def create_segments(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-        """Create customer segments based on RFM and other metrics"""
-        df = df.copy()
-        
-        # Validate input data
-        if (df['frequency'] < 0).any():
-            raise ValueError("Frequency values cannot be negative")
-            
-        # Add validation for other metrics as needed
-        if (df['transaction_amount'] < 0).any():
-            raise ValueError("Transaction amounts cannot be negative")
-            
-        # Calculate RFM scores
-        df = self._calculate_rfm_scores(df)
-        
-        # Add engagement metrics if configured
-        if self.segment_config.get('use_engagement', False):
-            df = self._add_engagement_scores(df)
-            
-        # Create final segments
-        model_data = self._prepare_model_data(df)
-        
-        return df, model_data
-        
-    def _calculate_rfm_scores(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate RFM scores for segmentation"""
-        # Calculate R score
-        df['R_score'] = pd.qcut(df['recency'], 4, labels=False, duplicates='drop')
-        
-        # Calculate F score
-        df['F_score'] = pd.qcut(df['frequency'], 4, labels=False, duplicates='drop')
-        
-        # Calculate M score
-        df['M_score'] = pd.qcut(df['monetary'], 4, labels=False, duplicates='drop')
-        
-        # Combined RFM score
-        df['RFM_score'] = (df['R_score'].astype(str) + 
-                          df['F_score'].astype(str) + 
-                          df['M_score'].astype(str))
-        
-        return df
-        
-    def _add_engagement_scores(self, data):
-        """
-        Add engagement scores based on customer interactions
-        
-        Args:
-            data (pd.DataFrame): Processed customer data
-            
-        Returns:
-            pd.DataFrame: Data with engagement scores added
-        """
-        data['engagement_score'] = (
-            data['sms_active'].astype(int) * 0.3 +
-            data['email_active'].astype(int) * 0.3 +
-            data['is_loyalty_member'].astype(int) * 0.4
+        # Assign engagement levels
+        processed_data['engagement_level'] = self._assign_engagement_levels(
+            processed_data['engagement_score']
         )
-        return data
         
-    def _prepare_model_data(self, df: pd.DataFrame) -> Dict[str, Any]:
-        """
-        Prepare data for model training
-        
-        Args:
-            df (pd.DataFrame): Processed and segmented customer data
-            
-        Returns:
-            Dict[str, Any]: Dictionary containing model-ready data
-        """
-        model_data = {
-            'customer_id': df['customer_id'].values,
-            'frequency': df['frequency'].values,
-            'recency': df['recency'].values,
-            'monetary': df['monetary'].values,
-            'rfm_score': df['RFM_score'].values
+        # Create metadata about the segmentation
+        metadata = {
+            'total_customers': len(processed_data),
+            'segments': processed_data['engagement_level'].value_counts().to_dict(),
+            'timestamp': datetime.now().isoformat()
         }
         
-        # Add engagement score if available
-        if 'engagement_score' in df.columns:
-            model_data['engagement_score'] = df['engagement_score'].values
-            
-        return model_data
+        return processed_data, metadata
+
+    def _calculate_engagement_score(self, data: pd.DataFrame) -> pd.Series:
+        """Calculate customer engagement score"""
+        # Normalize numeric columns
+        numeric_cols = ['frequency', 'recency', 'monetary']
+        normalized = data[numeric_cols].apply(lambda x: (x - x.mean()) / x.std())
+        
+        # Weight and combine for engagement score
+        weights = {
+            'frequency': 0.4,
+            'recency': -0.3,  # Negative because lower recency is better
+            'monetary': 0.3
+        }
+        
+        engagement_score = sum(normalized[col] * weight 
+                             for col, weight in weights.items())
+        
+        return engagement_score
+
+    def _assign_engagement_levels(self, scores: pd.Series) -> pd.Series:
+        """Assign engagement levels based on score percentiles"""
+        conditions = [
+            scores > scores.quantile(0.75),
+            scores > scores.quantile(0.5),
+            scores > scores.quantile(0.25),
+            scores <= scores.quantile(0.25)
+        ]
+        
+        choices = ['Very High', 'High', 'Medium', 'Low']
+        
+        return pd.Series(np.select(conditions, choices), index=scores.index)

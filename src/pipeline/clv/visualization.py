@@ -10,8 +10,10 @@ class CLVVisualization(BaseProcessor):
     
     def __init__(self, config_loader):
         self.config = config_loader
-        self.viz_config = config_loader.pipeline_config['visualization']
-        plt.style.use(self.viz_config.get('style', 'seaborn'))
+        self.viz_config = config_loader.pipeline_config.get('visualization', {})
+        plt.style.use('default')
+        if plt.get_backend() == 'agg':
+            sns.set_style('whitegrid')
         
     def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Process data for visualization"""
@@ -19,40 +21,48 @@ class CLVVisualization(BaseProcessor):
         
     def plot_trace(self, trace, params: Optional[list] = None) -> plt.Figure:
         """Plot MCMC trace with configurable parameters"""
-        config = self.viz_config['trace_plots']
+        config = self.viz_config.get('trace_plots', {})
         fig, axes = plt.subplots(
-            3, 2, 
+            3, 2,
             figsize=config.get('figsize', (12, 8)),
-            dpi=self.viz_config.get('dpi', 100)
+            dpi=config.get('dpi', 100)
         )
         
         params = params or ['r', 'alpha', 'beta']
-        n_chains = min(
-            config.get('n_chains_display', 4),
-            trace.posterior.chain.size
-        )
         
-        for i, param in enumerate(params):
-            # Trace plot
-            for chain in range(n_chains):
-                axes[i, 0].plot(
-                    trace.posterior[param].isel(chain=chain),
-                    alpha=0.7,
-                    label=f'Chain {chain+1}'
-                )
-            axes[i, 0].set_title(f'{param} Trace')
-            axes[i, 0].legend()
-            
-            # Histogram
-            sns.histplot(
-                trace.posterior[param].values.flatten(),
-                ax=axes[i, 1],
-                bins=config.get('hist_bins', 30)
-            )
-            axes[i, 1].set_title(f'{param} Distribution')
-            
+        # Handle both ArviZ InferenceData and dictionary traces
+        if hasattr(trace, 'posterior'):
+            # ArviZ InferenceData
+            n_chains = trace.posterior.chain.size
+            for i, param in enumerate(params):
+                if param in trace.posterior:
+                    param_data = trace.posterior[param].values
+                    self._plot_param_trace(axes[i, 0], axes[i, 1], param, param_data, n_chains)
+        else:
+            # Dictionary trace
+            n_chains = trace.get('chains', 1)
+            samples = trace.get('samples', {})
+            for i, param in enumerate(params):
+                if param in samples:
+                    param_data = samples[param]
+                    self._plot_param_trace(axes[i, 0], axes[i, 1], param, param_data, n_chains)
+        
         plt.tight_layout()
         return fig
+        
+    def _plot_param_trace(self, ax_trace, ax_hist, param, data, n_chains):
+        """Helper method to plot trace and histogram for a parameter"""
+        if len(data.shape) == 1:
+            # Reshape 1D array to 2D (chains x samples)
+            samples_per_chain = len(data) // n_chains
+            data = data.reshape(n_chains, samples_per_chain)
+        
+        for chain in range(n_chains):
+            ax_trace.plot(data[chain], alpha=0.5)
+        ax_trace.set_title(f'{param} trace')
+        
+        ax_hist.hist(data.flatten(), bins=30)
+        ax_hist.set_title(f'{param} histogram')
         
     def plot_segments(self, df: pd.DataFrame) -> plt.Figure:
         """Plot customer segments with configurable styling"""
@@ -123,8 +133,8 @@ class CLVVisualization(BaseProcessor):
         ax.plot(sorted_preds.index, sorted_preds['predicted_value'], 'b-', label='Prediction')
         ax.fill_between(
             sorted_preds.index,
-            sorted_preds['value_lower'],
-            sorted_preds['value_upper'],
+            sorted_preds['lower_bound'],
+            sorted_preds['upper_bound'],
             alpha=0.3,
             label='95% CI'
         )
@@ -157,4 +167,26 @@ class CLVVisualization(BaseProcessor):
             axes[1, 0].axvline(x=1.1, color='r', linestyle='--')
             
         plt.tight_layout()
+        return fig 
+
+    def _plot_rhat(self, r_hat_values: pd.Series) -> plt.Figure:
+        """Plot R-hat convergence statistics"""
+        # Convert xarray DataArray to pandas DataFrame
+        if hasattr(r_hat_values, 'to_dataframe'):
+            r_hat_df = r_hat_values.to_dataframe('r_hat')
+        else:
+            r_hat_df = pd.DataFrame({'r_hat': r_hat_values})
+        
+        r_hat_df = r_hat_df.reset_index()
+        r_hat_df.columns = ['parameter', 'r_hat']
+        
+        # Convert to numeric, dropping any non-numeric values
+        r_hat_df['r_hat'] = pd.to_numeric(r_hat_df['r_hat'], errors='coerce')
+        r_hat_df = r_hat_df.dropna()
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.barplot(data=r_hat_df, x='r_hat', y='parameter', ax=ax)
+        ax.axvline(x=1.1, color='r', linestyle='--', alpha=0.5)
+        ax.set_title('R-hat Values by Parameter')
+        
         return fig 

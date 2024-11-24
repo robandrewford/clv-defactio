@@ -20,9 +20,22 @@ class TestCustomerSegmentation:
         
         # Should return tuple of (DataFrame, Dict)
         assert isinstance(result, tuple)
-        assert len(result) == 2
-        assert isinstance(result[0], pd.DataFrame)
-        assert isinstance(result[1], dict)
+        
+        # Add more specific assertions
+        processed_data, metadata = result
+        assert isinstance(processed_data, pd.DataFrame)
+        assert isinstance(metadata, dict)
+        
+        # Verify the processed data has required columns
+        required_columns = [
+            'customer_id', 
+            'frequency', 
+            'recency', 
+            'monetary',
+            'engagement_score',
+            'engagement_level'
+        ]
+        assert all(col in processed_data.columns for col in required_columns)
 
     def test_rfm_segmentation(self, config_loader, sample_customer_features):
         """Test RFM segmentation"""
