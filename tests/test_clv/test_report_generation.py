@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import reportlab
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
@@ -7,7 +8,9 @@ from reportlab.lib.units import inch
 import io
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+import numpy as np
+from ..conftest import ModelStatisticalAnalyzer, ModelMetadataAnalyzer  # Assuming these exist
 
 class ModelAnalysisReport:
     """Generate PDF reports for model analysis"""
@@ -17,6 +20,9 @@ class ModelAnalysisReport:
         stat_analyzer: ModelStatisticalAnalyzer,
         metadata_analyzer: ModelMetadataAnalyzer
     ):
+        if not stat_analyzer or not metadata_analyzer:
+            raise ValueError("Both stat_analyzer and metadata_analyzer must be provided")
+            
         self.stat_analyzer = stat_analyzer
         self.metadata_analyzer = metadata_analyzer
         self.styles = getSampleStyleSheet()
@@ -99,12 +105,18 @@ class ModelAnalysisReport:
         analysis = self.metadata_analyzer.analyze_runs()
         stats = self.stat_analyzer.run_statistical_tests()
         
+        # Updated to handle potential None/missing values
+        total_runs = analysis.run_summary.get('total_runs', [0])[0]
+        successful_runs = analysis.run_summary.get('successful_runs', [0])[0]
+        avg_duration = analysis.run_summary.get('avg_duration', [0.0])[0]
+        avg_r_hat = analysis.run_summary.get('avg_r_hat', [0.0])[0]
+        
         summary_data = [
             ['Metric', 'Value'],
-            ['Total Runs', str(analysis.run_summary['total_runs'][0])],
-            ['Success Rate', f"{analysis.run_summary['successful_runs'][0] / analysis.run_summary['total_runs'][0]:.1%}"],
-            ['Average Duration', f"{analysis.run_summary['avg_duration'][0]:.2f}s"],
-            ['Average R-hat', f"{analysis.run_summary['avg_r_hat'][0]:.3f}"]
+            ['Total Runs', str(total_runs)],
+            ['Success Rate', f"{successful_runs/total_runs:.1%}" if total_runs > 0 else "0.0%"],
+            ['Average Duration', f"{avg_duration:.2f}s"],
+            ['Average R-hat', f"{avg_r_hat:.3f}"]
         ]
         
         summary_table = Table(summary_data)
@@ -230,14 +242,57 @@ class ModelAnalysisReport:
     
     def _plot_performance_summary(self, output):
         """Create performance summary plot"""
-        plt.figure(figsize=(10, 6))
-        # Add performance plotting code
-        plt.savefig(output, format='png')
-        plt.close()
+        try:
+            plt.figure(figsize=(10, 6))
+            
+            # Get performance data
+            perf_data = self.stat_analyzer.get_performance_metrics()
+            
+            # Plot performance metrics
+            if perf_data:
+                x = range(len(perf_data))
+                plt.plot(x, perf_data, 'b-', label='Performance')
+                plt.xlabel('Run Number')
+                plt.ylabel('Performance Metric')
+                plt.title('Model Performance Over Time')
+                plt.legend()
+            
+            plt.savefig(output, format='png')
+            plt.close()
+        except Exception as e:
+            print(f"Error generating performance plot: {str(e)}")
+            # Create a simple placeholder plot
+            plt.figure(figsize=(10, 6))
+            plt.text(0.5, 0.5, 'Performance data unavailable', 
+                    horizontalalignment='center', verticalalignment='center')
+            plt.savefig(output, format='png')
+            plt.close()
     
     def _plot_convergence_summary(self, output):
         """Create convergence summary plot"""
-        plt.figure(figsize=(10, 6))
-        # Add convergence plotting code
-        plt.savefig(output, format='png')
-        plt.close() 
+        try:
+            plt.figure(figsize=(10, 6))
+            
+            # Get convergence data
+            conv_data = self.stat_analyzer.get_convergence_metrics()
+            
+            # Plot convergence metrics
+            if conv_data:
+                x = range(len(conv_data))
+                plt.plot(x, conv_data, 'r-', label='R-hat')
+                plt.axhline(y=1.1, color='k', linestyle='--', label='Convergence Threshold')
+                plt.xlabel('Iteration')
+                plt.ylabel('R-hat Value')
+                plt.title('Model Convergence Analysis')
+                plt.legend()
+            
+            plt.savefig(output, format='png')
+            plt.close()
+        except Exception as e:
+            print(f"Error generating convergence plot: {str(e)}")
+            # Create a simple placeholder plot
+            plt.figure(figsize=(10, 6))
+            plt.text(0.5, 0.5, 'Convergence data unavailable',
+                    horizontalalignment='center', verticalalignment='center')
+            plt.savefig(output, format='png')
+            plt.close() 

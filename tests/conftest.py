@@ -1,25 +1,46 @@
+import os
+import sys
+from pathlib import Path
+
+# Add src directory to Python path
+src_path = str(Path(__file__).parent.parent / 'src')
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
+
 import pytest
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from src.pipeline.clv import CLVConfigLoader
+import yaml
 
 @pytest.fixture
 def config_loader():
-    """Provide test configuration"""
-    return CLVConfigLoader("tests/test_config")
+    """Fixture to provide model configuration"""
+    class SimpleConfigLoader:
+        def __init__(self, config_path):
+            self.config_path = config_path
+            with open(config_path) as f:
+                self.model_config = yaml.safe_load(f)
+    
+    return SimpleConfigLoader('src/config/model_config.yaml')
 
 @pytest.fixture
 def sample_model_data():
-    """Generate sample model data"""
-    n_samples = 100
-    return {
-        'frequency': np.random.poisson(5, n_samples),
-        'recency': np.random.randint(0, 365, n_samples),
-        'monetary_value': np.random.lognormal(3, 1, n_samples),
-        'T': np.random.randint(100, 1000, n_samples),
-        'segment_ids': np.zeros(n_samples)
-    }
+    """Fixture to provide sample data for model testing"""
+    n_customers = 100
+    n_transactions = 500
+    
+    data = pd.DataFrame({
+        'customer_id': np.random.randint(1, n_customers + 1, n_transactions),
+        'transaction_date': pd.date_range(
+            start='2020-01-01', 
+            periods=n_transactions, 
+            freq='D'
+        ),
+        'amount': np.random.lognormal(3, 1, n_transactions)
+    })
+    
+    return data
 
 @pytest.fixture
 def sample_transaction_data():

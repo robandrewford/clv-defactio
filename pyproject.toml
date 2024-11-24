@@ -28,6 +28,8 @@ shapely = "^2.0.6"
 apache-airflow = "^2.10.3"
 apache-airflow-providers-google = "^10.26.0"
 kfp = "^2.10.1"
+statsmodels = "^0.14.0"
+memory-profiler = "^0.61.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"

@@ -5,6 +5,7 @@ import seaborn as sns
 from pathlib import Path
 from scipy import stats
 from typing import Dict, Any
+from .test_model_diagnostics import ModelStatisticalAnalyzer
 
 class StatisticalVisualizer:
     """Visualize statistical analysis results"""

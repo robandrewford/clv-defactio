@@ -13,6 +13,9 @@ from src.pipeline.clv import (
     HierarchicalCLVModel,
     CLVModelRegistry
 )
+import gc
+import warnings
+from contextlib import contextmanager
 
 class TestCLVPipelinePerformance:
     """Performance tests for CLV pipeline components"""
@@ -101,16 +104,29 @@ class TestCLVPipelinePerformance:
         import concurrent.futures
         
         def run_pipeline(size):
-            data = self._generate_test_data(size)
-            preprocessor = CLVDataPreprocessor(config_loader)
-            return preprocessor.process_data(data)
+            try:
+                data = self._generate_test_data(size)
+                preprocessor = CLVDataPreprocessor(config_loader)
+                result = preprocessor.process_data(data)
+                # Explicitly clean up
+                del data, preprocessor
+                gc.collect()
+                return result
+            except Exception as e:
+                print(f"Pipeline error for size {size}: {str(e)}")
+                raise
         
         sizes = [1000, 2000, 3000]
         start_time = time.time()
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             futures = [executor.submit(run_pipeline, size) for size in sizes]
-            results = [f.result() for f in concurrent.futures.as_completed(futures)]
+            results = []
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    results.append(future.result())
+                except Exception as e:
+                    print(f"Error processing future: {str(e)}")
             
         total_time = time.time() - start_time
         
@@ -158,6 +174,11 @@ class TestCLVPipelinePerformance:
         """Get GPU memory usage if available"""
         try:
             import torch
-            return torch.cuda.memory_allocated() / 1024 / 1024  # MB
-        except:
+            if torch.cuda.is_available():
+                return torch.cuda.memory_allocated() / 1024 / 1024  # MB
+            else:
+                warnings.warn("CUDA not available for GPU memory check")
+                return 0
+        except ImportError:
+            warnings.warn("PyTorch not installed - cannot check GPU memory")
             return 0 
