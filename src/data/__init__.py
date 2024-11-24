@@ -1,3 +1,3 @@
-from .processor import CLVDataProcessor, DataProcessor
+from .processor import DataProcessor, DataProcessor
 
-__all__ = ["DataProcessor", "CLVDataProcessor"]
+__all__ = ["DataProcessor", "DataProcessor"]

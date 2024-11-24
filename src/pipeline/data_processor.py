@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 
 # Data processor
-class CLVDataProcessor:
+class DataProcessor:
     """
-    CLV data processing class with data quality checks
+    Data processing class with data quality checks
     """
     def __init__(self, config=None):
         if config is None:
@@ -17,17 +17,16 @@ class CLVDataProcessor:
     def _build_query(self):
         """Build BigQuery query based on configuration parameters"""
         # Handle date parameters
-        max_date = self.config['MAX_PURCHASE_DATE'] or 'CURRENT_DATE()'
-        min_date = f"DATE('{self.config['MIN_PURCHASE_DATE']}')"
-        cohort_month = f"DATE('{self.config['COHORT_MONTH']}')"
+        max_date = f"DATE('{self.config['max_purchase_date']}')"
+        cohort_month = f"DATE('{self.config['cohort_month']}')"
 
         # Build channel condition
         channel_conditions = []
-        if self.config['INCLUDE_ONLINE']:
+        if self.config['include_online']:
             channel_conditions.append("has_online_purchases = 1")
-        if self.config['INCLUDE_STORE']:
+        if self.config['include_store']:
             channel_conditions.append("has_store_purchases = 1")
-        channel_filter = f"({' OR '.join(channel_conditions)})" if channel_conditions else "TRUE"
+        channel_filter = f"({' OR '.join(channel_conditions)})" if channel_conditions else "True"
 
         query = f"""
         WITH
@@ -57,17 +56,16 @@ class CLVDataProcessor:
           CAST(is_loyalty_member AS INT64) AS is_loyalty_member,
           CAST(loyalty_points AS INT64) AS loyalty_points
         FROM
-          `{self.config['PROJECT_ID']}.{self.config['DATASET']}.{self.config['TABLE']}`
+          `{self.config['project_id']}.{self.config['dataset']}.{self.config['table']}`
         WHERE
           customer_id IS NOT NULL
           AND cohort_month IS NOT NULL
-          AND frequency >= {self.config['MIN_FREQUENCY']}
-          AND total_revenue >= {self.config['MIN_REVENUE']}
-          AND avg_transaction_value >= {self.config['MIN_TRANSACTION_VALUE']}
           AND cohort_month >= {cohort_month}
-          # AND first_purchase_date >= {min_date}
           AND last_purchase_date <= {max_date}
-          AND loyalty_points >= {self.config['MIN_LOYALTY_POINTS']}
+          AND frequency >= {self.config['min_frequency']}
+          AND total_revenue >= {self.config['min_revenue']}
+          AND avg_transaction_value >= {self.config['min_transaction_value']}
+          AND loyalty_points >= {self.config['min_loyalty_points']}
           AND {channel_filter}
         )
         SELECT
@@ -75,7 +73,7 @@ class CLVDataProcessor:
         FROM
           fin
         LIMIT
-          {self.config['LIMIT']}
+          {self.config['limit']}
         """
 
         return query
@@ -89,7 +87,7 @@ class CLVDataProcessor:
             else:
                 from google.cloud import bigquery
 
-                client = bigquery.Client(project=project_id or self.config['PROJECT_ID'])
+                client = bigquery.Client(project=project_id or self.config['project_id'])
 
                 # Build the query using config parameters
                 default_query = self._build_query()
@@ -151,7 +149,7 @@ class CLVDataProcessor:
 
         # Remove invalid records
         self.data = self.data[
-            (self.data['frequency'] >= self.config['MIN_FREQUENCY']) &
+            (self.data['frequency'] >= self.config['min_frequency']) &
             (self.data['total_revenue'] > 0) &
             (self.data['avg_transaction_value'] > 0)
         ]
@@ -232,7 +230,7 @@ class CLVDataProcessor:
 
         # Define validation rules
         validations = {
-            'valid_frequency': self.data['frequency'] >= self.config['MIN_FREQUENCY'],
+            'valid_frequency': self.data['frequency'] >= self.config['min_frequency'],
             'valid_recency': self.data['recency'] >= 0,
             'valid_monetary': self.data['avg_transaction_value'] > 0,
             'valid_dates': self.data['last_purchase_date'] >= self.data['first_purchase_date']

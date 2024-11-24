@@ -2,7 +2,9 @@ from typing import Dict, Optional
 from kfp import dsl
 from kfp.v2 import compiler
 from google.cloud import aiplatform
+from sklearn.metrics import mean_squared_error, r2_score
 import logging
+import datetime
 
 @dsl.component(
     base_image="python:3.9",
@@ -72,10 +74,16 @@ def evaluate_model(
     test_df = pd.read_parquet(test_data_path)
     
     # Evaluation logic here
-    metrics = {
-        'mse': mean_squared_error(y_true, y_pred),
-        'r2': r2_score(y_true, y_pred)
-    }
+    try:
+        metrics = {
+            'mse': mean_squared_error(y_true, y_pred),
+            'r2': r2_score(y_true, y_pred)
+        }
+        print("Metrics calculated successfully:", metrics)
+    except ValueError as ve:
+        print(f"ValueError: Check if shapes of y_true and y_pred are compatible. {ve}")
+    except Exception as e:
+        print(f"An error occurred during metrics calculation: {e}")
     
     # Save metrics
     pd.DataFrame([metrics]).to_json(metrics_path)

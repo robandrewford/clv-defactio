@@ -94,7 +94,7 @@ class DataProcessor:
         )
 
 
-class CLVDataProcessor(DataProcessor):
+class DataProcessor(DataProcessor):
     """CLV-specific data processing with advanced features"""
 
     def __init__(self, config: Dict[str, Any]):
@@ -115,7 +115,7 @@ class CLVDataProcessor(DataProcessor):
         query: Optional[str] = None,
         project_id: Optional[str] = None,
         csv_path: Optional[str] = None,
-    ) -> "CLVDataProcessor":
+    ) -> "DataProcessor":
         """
         Load data from either BigQuery or CSV
 

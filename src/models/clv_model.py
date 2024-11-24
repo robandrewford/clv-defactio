@@ -6,8 +6,8 @@ import pytensor.tensor as pt
 import arviz as az
 
 from .base import BayesianModel
-from ..utils.gpu_utils import GPUManager
-from ..utils.monitoring import ResourceMonitor
+from src.utils.gpu import GPUManager
+from src.utils.monitoring import ResourceMonitor
 
 
 class ModelError(Exception):

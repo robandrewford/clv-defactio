@@ -14,7 +14,7 @@ pipeline:
     accelerator_count: 1
 
 model:
-  type: "lifetime_value"
+  type: "customer_lifetime_value"
   parameters:
     prediction_window: 12
     features:

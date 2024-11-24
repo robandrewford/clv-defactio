@@ -1,0 +1,71 @@
+# Core data requirements
+required_columns:
+  transaction:
+    - frequency
+    - recency
+    - customer_age_days
+    - monetary
+    - avg_transaction_value
+  customer:
+    - cohort_month
+    - distinct_categories
+    - distinct_brands
+    - avg_interpurchase_days
+    - has_online_purchases
+    - has_store_purchases
+  engagement:
+    - sms_active
+    - email_active
+    - is_loyalty_member
+    - loyalty_points
+
+segment_configs:
+  transaction:
+    frequency:
+      n_bins: 4
+      labels: ["low", "medium", "high"]
+    recency:
+      n_bins: 4
+      labels: ["recent", "mid", "old"]
+    monetary:
+      n_bins: 4
+      labels: ["low", "medium", "high"]
+  engagement:
+    metrics: ["sms_active", "email_active", "is_loyalty_member"]
+    loyalty_points:
+      n_bins: 4
+      labels: ["low", "medium", "high"]
+
+segment_config:
+  # Default segment parameters
+  use_rfm: true
+  rfm_bins:
+    recency: 4 # Number of bins for recency
+    frequency: 4 # Number of bins for frequency
+    monetary: 4 # Number of bins for monetary value
+
+  # Engagement segment parameters
+  use_engagement: true
+  engagement_bins: 4 # Number of bins for engagement metrics
+  engagement_metrics:
+    - sms_active # SMS engagement metric
+    - email_active # Email engagement metric
+    - is_loyalty_member # Loyalty membership metric
+
+  # Channel Segmentation
+  use_channel: true # Channel preference
+
+  # Loyalty Segmentation
+  use_loyalty: true # Loyalty segments
+  loyalty_bins: 4 # Number of loyalty level bins
+
+  # Cohort Segmentation
+  use_cohorts: true # Cohort grouping
+  cohort_type: quarterly # 'monthly' or 'quarterly'
+
+  # Combined Segmentation
+  use_combined: true # Whether to create combined segments
+
+  # Segment Size Controls
+  min_segment_size: 200 # Minimum customers per segment
+  merge_small_segments: true # Whether to merge small segments into 'other'

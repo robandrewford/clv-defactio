@@ -6,7 +6,7 @@ from google.cloud import bigquery
 from sklearn.preprocessing import StandardScaler
 
 
-class CLVDataProcessor:
+class DataProcessor:
     """CLV data processing class with data quality checks"""
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -56,7 +56,7 @@ class CLVDataProcessor:
         query: Optional[str] = None,
         project_id: Optional[str] = None,
         csv_path: Optional[str] = None,
-    ) -> "CLVDataProcessor":
+    ) -> "DataProcessor":
         """Load data either from BigQuery or CSV file"""
         try:
             if csv_path:
@@ -82,7 +82,7 @@ class CLVDataProcessor:
             print(f"Error loading data: {str(e)}")
             raise
 
-    def process_data(self) -> "CLVDataProcessor":
+    def process_data(self) -> "DataProcessor":
         """Main data processing pipeline"""
         if self.data is None:
             raise ValueError("No data loaded. Call load_data() first.")
