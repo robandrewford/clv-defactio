@@ -3,6 +3,8 @@ import time
 import psutil
 import numpy as np
 import pandas as pd
+import git
+import memory_profiler
 from memory_profiler import profile
 from datetime import datetime, timedelta
 from src.pipeline.clv import (

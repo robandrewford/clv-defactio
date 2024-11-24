@@ -30,4 +30,19 @@ def test_monitoring_config(config_loader):
     monitoring_config = config_loader.get_monitoring_config()
     
     assert 'enable_monitoring' in monitoring_config
-    assert 'metrics' in monitoring_config 
+    assert 'metrics' in monitoring_config
+
+"""Test configuration constants"""
+
+TEST_CONFIG = {
+    'model': {
+        'mcmc_samples': 500,
+        'mcmc_tune': 200,
+        'chains': 2,
+        'target_accept': 0.8
+    },
+    'data': {
+        'min_transactions': 5,
+        'max_customers': 1000
+    }
+} 

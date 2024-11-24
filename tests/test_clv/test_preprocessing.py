@@ -1,4 +1,6 @@
 import pytest
+import pandas as pd
+import numpy as np
 from src.pipeline.clv.preprocessing import CLVDataPreprocessor
 
 def test_preprocessor_initialization(config_loader):

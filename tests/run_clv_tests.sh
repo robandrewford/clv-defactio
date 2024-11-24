@@ -1,14 +1,9 @@
-# Run all tests
-poetry run pytest
+#!/bin/bash
 
-# Run specific test file
-poetry run pytest tests/test_clv/test_model.py
+# Run all CLV tests
+pytest tests/test_clv/ -v
 
-# Run with coverage report
-poetry run pytest --cov=src --cov-report=html
-
-# Run tests matching a pattern
-poetry run pytest -k "model"
-
-# Open htmlcov/index.html in browser
-open htmlcov/index.html
+# Run specific test suites
+pytest tests/test_clv/test_model_diagnostics.py -v
+pytest tests/test_clv/test_integration.py -v
+pytest tests/test_clv/test_performance.py -v
