@@ -1,192 +1,162 @@
 from typing import Dict, Any, Optional
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import arviz as az
 from .base import BaseProcessor
 
 class CLVVisualization(BaseProcessor):
-    """Component for CLV-related visualizations"""
+    """Visualization component for CLV analysis"""
     
-    def __init__(self, config_loader):
-        self.config = config_loader
-        self.viz_config = config_loader.pipeline_config.get('visualization', {})
-        plt.style.use('default')
-        if plt.get_backend() == 'agg':
-            sns.set_style('whitegrid')
+    def __init__(self, config):
+        """Initialize visualization
         
-    def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Process data for visualization"""
-        return df
+        Args:
+            config: Configuration object
+        """
+        super().__init__(config)
+        self.viz_config = config.get('visualization', {})
+        self.style = self.viz_config.get('plot_style', 'default')
+        self.figure_size = self.viz_config.get('figure_size', (10, 6))
+        if self.style != 'default':
+            sns.set_style(self.style)
+
+    def plot_trace(self, trace: Dict[str, Any], params: Optional[list] = None):
+        """Plot MCMC trace
         
-    def plot_trace(self, trace, params: Optional[list] = None) -> plt.Figure:
-        """Plot MCMC trace with configurable parameters"""
-        config = self.viz_config.get('trace_plots', {})
-        fig, axes = plt.subplots(
-            3, 2,
-            figsize=config.get('figsize', (12, 8)),
-            dpi=config.get('dpi', 100)
-        )
-        
-        params = params or ['r', 'alpha', 'beta']
-        
-        # Handle both ArviZ InferenceData and dictionary traces
-        if hasattr(trace, 'posterior'):
-            # ArviZ InferenceData
-            n_chains = trace.posterior.chain.size
-            for i, param in enumerate(params):
-                if param in trace.posterior:
-                    param_data = trace.posterior[param].values
-                    self._plot_param_trace(axes[i, 0], axes[i, 1], param, param_data, n_chains)
-        else:
-            # Dictionary trace
-            n_chains = trace.get('chains', 1)
-            samples = trace.get('samples', {})
-            for i, param in enumerate(params):
-                if param in samples:
-                    param_data = samples[param]
-                    self._plot_param_trace(axes[i, 0], axes[i, 1], param, param_data, n_chains)
-        
-        plt.tight_layout()
-        return fig
-        
-    def _plot_param_trace(self, ax_trace, ax_hist, param, data, n_chains):
-        """Helper method to plot trace and histogram for a parameter"""
-        if len(data.shape) == 1:
-            # Reshape 1D array to 2D (chains x samples)
-            samples_per_chain = len(data) // n_chains
-            data = data.reshape(n_chains, samples_per_chain)
-        
-        for chain in range(n_chains):
-            ax_trace.plot(data[chain], alpha=0.5)
-        ax_trace.set_title(f'{param} trace')
-        
-        ax_hist.hist(data.flatten(), bins=30)
-        ax_hist.set_title(f'{param} histogram')
-        
-    def plot_segments(self, df: pd.DataFrame) -> plt.Figure:
-        """Plot customer segments with configurable styling"""
-        config = self.viz_config['segment_plots']
-        fig, (ax1, ax2) = plt.subplots(
-            1, 2,
-            figsize=config.get('figsize', (15, 6)),
-            dpi=self.viz_config.get('dpi', 100)
-        )
-        
-        palette = config.get('palette', 'deep')
-        alpha = config.get('bar_alpha', 0.8)
-        
-        # RFM Score Distribution
-        if 'RFM_score' in df.columns:
-            sns.histplot(
-                data=df,
-                x='RFM_score',
-                ax=ax1,
-                palette=palette,
-                alpha=alpha
-            )
-            ax1.set_title('RFM Score Distribution')
+        Args:
+            trace: MCMC trace dictionary
+            params: Optional list of parameters to plot
+        """
+        if not params:
+            params = list(trace['posterior'].keys())
             
-        # Segment Sizes
-        if 'segment_ids' in df.columns:
-            segment_sizes = df['segment_ids'].value_counts()
-            segment_sizes.plot(
-                kind='bar',
-                ax=ax2,
-                alpha=alpha,
-                color=sns.color_palette(palette)
-            )
-            ax2.set_title('Segment Sizes')
+        fig, axes = plt.subplots(len(params), 2, figsize=self.figure_size)
+        
+        for idx, param in enumerate(params):
+            data = trace['posterior'][param]
+            
+            # Plot trace
+            if len(axes.shape) == 1:
+                ax1, ax2 = axes[0], axes[1]
+            else:
+                ax1, ax2 = axes[idx, 0], axes[idx, 1]
+                
+            ax1.plot(data.T)
+            ax1.set_title(f'{param} trace')
+            
+            # Plot distribution
+            sns.kdeplot(data.flatten(), ax=ax2)
+            ax2.set_title(f'{param} distribution')
             
         plt.tight_layout()
         return fig
+
+    def plot_segments(self, df: pd.DataFrame, features: list):
+        """Plot customer segments
         
-    def save_plot(
-        self,
-        fig: plt.Figure,
-        filename: str,
-        directory: Optional[str] = None
-    ) -> None:
-        """Save plot in configured formats"""
-        formats = self.viz_config.get('formats', ['png'])
-        directory = directory or 'plots'
+        Args:
+            df: Segmented DataFrame
+            features: Features to plot
+        """
+        if len(features) < 2:
+            raise ValueError("Need at least 2 features for segment visualization")
+            
+        fig = plt.figure(figsize=self.figure_size)
         
-        import os
-        os.makedirs(directory, exist_ok=True)
+        # Create scatter plot of first two features
+        plt.scatter(
+            df[features[0]], 
+            df[features[1]], 
+            c=df['segment'], 
+            cmap='viridis'
+        )
+        plt.xlabel(features[0])
+        plt.ylabel(features[1])
+        plt.title('Customer Segments')
         
-        for fmt in formats:
-            path = os.path.join(directory, f"{filename}.{fmt}")
-            fig.savefig(
-                path,
-                dpi=self.viz_config.get('dpi', 100),
-                bbox_inches='tight'
-            )
+        return fig
+
+    def plot_prediction_intervals(self, predictions: pd.DataFrame):
+        """Plot prediction intervals
         
-    def plot_prediction_intervals(self, predictions: pd.DataFrame) -> plt.Figure:
-        """Plot prediction intervals"""
-        fig, ax = plt.subplots(figsize=(10, 6))
+        Args:
+            predictions: DataFrame with predictions and bounds
+        """
+        fig = plt.figure(figsize=self.figure_size)
         
-        # Sort by predicted value for better visualization
-        sorted_preds = predictions.sort_values('predicted_value')
-        
-        # Plot predictions with confidence intervals
-        ax.plot(sorted_preds.index, sorted_preds['predicted_value'], 'b-', label='Prediction')
-        ax.fill_between(
-            sorted_preds.index,
-            sorted_preds['lower_bound'],
-            sorted_preds['upper_bound'],
+        plt.plot(predictions['predicted_value'], label='Prediction')
+        plt.fill_between(
+            range(len(predictions)),
+            predictions['lower_bound'],
+            predictions['upper_bound'],
             alpha=0.3,
             label='95% CI'
         )
         
-        ax.set_title('CLV Predictions with Confidence Intervals')
-        ax.set_xlabel('Customer Index')
-        ax.set_ylabel('Predicted CLV')
-        ax.legend()
+        plt.xlabel('Customer Index')
+        plt.ylabel('Predicted CLV')
+        plt.title('CLV Predictions with Uncertainty')
+        plt.legend()
         
         return fig
-        
-    def plot_diagnostics(self, diagnostics: Dict[str, np.ndarray]) -> plt.Figure:
-        """Plot model diagnostics"""
-        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-        
-        # Convergence plot
-        if 'convergence' in diagnostics:
-            axes[0, 0].plot(diagnostics['convergence'])
-            axes[0, 0].set_title('Convergence')
-            
-        # Effective sample size
-        if 'effective_sample_size' in diagnostics:
-            sns.histplot(diagnostics['effective_sample_size'], ax=axes[0, 1])
-            axes[0, 1].set_title('Effective Sample Size')
-            
-        # R-hat values
-        if 'r_hat' in diagnostics:
-            sns.histplot(diagnostics['r_hat'], ax=axes[1, 0])
-            axes[1, 0].set_title('R-hat Values')
-            axes[1, 0].axvline(x=1.1, color='r', linestyle='--')
-            
-        plt.tight_layout()
-        return fig 
 
-    def _plot_rhat(self, r_hat_values: pd.Series) -> plt.Figure:
-        """Plot R-hat convergence statistics"""
-        # Convert xarray DataArray to pandas DataFrame
-        if hasattr(r_hat_values, 'to_dataframe'):
-            r_hat_df = r_hat_values.to_dataframe('r_hat')
-        else:
-            r_hat_df = pd.DataFrame({'r_hat': r_hat_values})
+    def plot_convergence_diagnostics(self, trace: Dict[str, Any]):
+        """Plot model convergence diagnostics
         
-        r_hat_df = r_hat_df.reset_index()
-        r_hat_df.columns = ['parameter', 'r_hat']
+        Args:
+            trace: MCMC trace
+        """
+        if not isinstance(trace, dict) or 'posterior' not in trace:
+            raise ValueError("Invalid trace format")
+            
+        # Calculate R-hat statistics
+        r_hat = az.rhat(trace)
         
-        # Convert to numeric, dropping any non-numeric values
-        r_hat_df['r_hat'] = pd.to_numeric(r_hat_df['r_hat'], errors='coerce')
-        r_hat_df = r_hat_df.dropna()
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=self.figure_size)
         
-        fig, ax = plt.subplots(figsize=(10, 6))
-        sns.barplot(data=r_hat_df, x='r_hat', y='parameter', ax=ax)
-        ax.axvline(x=1.1, color='r', linestyle='--', alpha=0.5)
-        ax.set_title('R-hat Values by Parameter')
+        # Plot R-hat values
+        r_hat_df = pd.DataFrame({
+            'parameter': list(r_hat.keys()),
+            'r_hat': [float(v) for v in r_hat.values()]
+        })
         
-        return fig 
+        sns.barplot(data=r_hat_df, x='r_hat', y='parameter', ax=ax1)
+        ax1.set_title('R-hat Values')
+        ax1.axvline(x=1.1, color='r', linestyle='--')
+        
+        # Plot effective sample size
+        n_eff = az.ess(trace)
+        n_eff_df = pd.DataFrame({
+            'parameter': list(n_eff.keys()),
+            'n_eff': [float(v) for v in n_eff.values()]
+        })
+        
+        sns.barplot(data=n_eff_df, x='n_eff', y='parameter', ax=ax2)
+        ax2.set_title('Effective Sample Size')
+        
+        plt.tight_layout()
+        return fig
+
+    def process_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process visualization data
+        
+        Args:
+            data: Input data dictionary
+            
+        Returns:
+            Dictionary of generated plots
+        """
+        plots = {}
+        
+        if 'trace' in data:
+            plots['trace'] = self.plot_trace(data['trace'])
+            plots['diagnostics'] = self.plot_convergence_diagnostics(data['trace'])
+            
+        if 'predictions' in data:
+            plots['predictions'] = self.plot_prediction_intervals(data['predictions'])
+            
+        if 'segments' in data and 'features' in data:
+            plots['segments'] = self.plot_segments(data['segments'], data['features'])
+            
+        return plots 

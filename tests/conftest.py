@@ -18,70 +18,75 @@ from unittest.mock import MagicMock
 CATEGORIES = ['Electronics', 'Clothing', 'Food', 'Home']
 BRANDS = ['BrandA', 'BrandB', 'BrandC', 'BrandD']
 
-@pytest.fixture
-def config_loader():
-    """Fixture to provide model and pipeline configuration"""
-    class SimpleConfigLoader:
-        def __init__(self):
-            self.model_config = {
-                'segment_config': {
-                    'use_engagement': True,
-                    'use_covariates': False
+class SimpleConfigLoader:
+    def __init__(self):
+        self.pipeline_config = {
+            'data_processing': {
+                'preprocessing': {
+                    'feature_columns': ['frequency', 'recency', 'monetary'],
+                    'target_column': 'customer_value'
                 },
+                'feature_engineering': {
+                    'transforms': ['log', 'standardize'],
+                    'interaction_terms': True,
+                    'polynomial_degree': 2
+                }
+            },
+            'storage': {
+                'model_path': 'models/',
+                'data_path': 'data/',
+                'gcs': {
+                    'bucket_name': 'test-bucket',
+                    'project_id': 'test-project'
+                }
+            },
+            'visualization': {
+                'plot_style': 'seaborn',
+                'figure_size': (10, 6)
+            },
+            'model': {
                 'hyperparameters': {
-                    'r_alpha': 1.0,
-                    'r_beta': 1.0,
-                    'alpha_mu': 1.0,
-                    'alpha_sigma': 1.0,
-                    'beta_mu': 1.0,
-                    'beta_sigma': 1.0,
                     'prior_settings': {
                         'alpha_shape': 1.0,
                         'beta_shape': 1.0
                     }
                 }
+            },
+            'segment_config': {
+                'n_segments': 3,
+                'features': ['recency', 'frequency', 'monetary'],
+                'method': 'kmeans'
             }
-            self.pipeline_config = {
-                'data_processing': {
-                    'validation': {
-                        'required_columns': ['customer_id', 'transaction_date', 'transaction_amount', 'frequency', 'recency'],
-                        'min_rows': 10,
-                        'max_missing_pct': 0.1
-                    },
-                    'cleaning': {
-                        'outlier_method': 'iqr',
-                        'outlier_threshold': 1.5
-                    }
-                },
-                'feature_engineering': {
-                    'time_features': {'enable': True, 'features': []},
-                    'customer_features': {'enable': True, 'features': []},
-                    'product_features': {'enable': True, 'features': []}
-                },
-                'storage': {
-                    'model_storage': {
-                        'type': 'local',
-                        'path': '/tmp/models'
-                    }
-                },
-                'visualization': {
-                    'plot_style': 'default',
-                    'color_palette': 'deep',
-                    'trace_plots': {
-                        'figsize': (12, 8),
-                        'dpi': 100,
-                        'n_chains_display': 4,
-                        'hist_bins': 30
-                    },
-                    'segment_plots': {
-                        'figsize': (15, 6),
-                        'dpi': 100,
-                        'palette': 'deep',
-                        'bar_alpha': 0.8
-                    }
-                }
-            }
+        }
+        
+    def get(self, key, default=None):
+        """Get configuration value by key
+        
+        Args:
+            key: Configuration key to retrieve
+            default: Default value if key not found
             
+        Returns:
+            Configuration value or default
+        """
+        # Handle nested keys with dot notation
+        if '.' in key:
+            keys = key.split('.')
+            value = self.pipeline_config
+            for k in keys:
+                if isinstance(value, dict):
+                    value = value.get(k, default)
+                else:
+                    return default
+            return value
+        
+        # Handle top level keys
+        if key in self.pipeline_config:
+            return self.pipeline_config[key]
+        return default
+
+@pytest.fixture
+def config_loader():
     return SimpleConfigLoader()
 
 @pytest.fixture
@@ -104,31 +109,12 @@ def sample_model_data():
 
 @pytest.fixture
 def sample_transaction_data():
-    """Generate sample transaction data"""
-    n_transactions = 1000
-    data = pd.DataFrame({
-        'customer_id': np.random.randint(1, 101, n_transactions),
-        'transaction_id': range(n_transactions),
-        'transaction_date': [
-            datetime.now() - timedelta(days=np.random.randint(0, 365))
-            for _ in range(n_transactions)
-        ],
-        'transaction_amount': np.random.lognormal(3, 1, n_transactions),
-        'category': np.random.choice(CATEGORIES, n_transactions),
-        'brand': np.random.choice(BRANDS, n_transactions),
-        'channel': np.random.choice(['online', 'store'], n_transactions),
-        'sms_active': np.random.randint(0, 2, n_transactions),
-        'email_active': np.random.randint(0, 2, n_transactions),
-        'is_loyalty_member': np.random.randint(0, 2, n_transactions),
-        'loyalty_points': np.random.randint(0, 1000, n_transactions),
-        'transaction_amount_std': np.random.rand(n_transactions),
-        'price_sensitivity': np.random.rand(n_transactions),
+    """Create a sample transaction DataFrame for testing"""
+    return pd.DataFrame({
+        'customer_id': [1, 1, 2, 2],
+        'transaction_date': ['2023-01-01', '2023-02-01', '2023-01-15', '2023-03-01'],
+        'amount': [100, 200, 150, 300]
     })
-    
-    # Add monetary column (same as transaction_amount)
-    data['monetary'] = data['transaction_amount']
-    
-    return data
 
 @pytest.fixture
 def mock_gcs_bucket():
@@ -169,3 +155,23 @@ def sample_customer_features():
         'transaction_date': pd.date_range(start='2023-01-01', periods=n_samples),
         'is_loyalty_member': np.random.choice([0, 1], n_samples)
     }) 
+
+@pytest.fixture
+def config_loader():
+    """Create a mock config loader for testing"""
+    class MockConfigLoader:
+        def __init__(self):
+            self.config = {
+                'segment_rules': {
+                    'rfm': {
+                        'recency_bins': [0, 30, 60, 90],
+                        'frequency_bins': [1, 2, 3, 4],
+                        'monetary_bins': [0, 100, 500, 1000]
+                    }
+                }
+            }
+        
+        def get_config(self, key, default=None):
+            return self.config.get(key, default)
+            
+    return MockConfigLoader() 

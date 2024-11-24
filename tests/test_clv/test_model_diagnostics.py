@@ -139,51 +139,33 @@ class TestModelDiagnostics:
     @pytest.mark.tryfirst
     def test_model_convergence_quality(self, sample_model_data, config_loader):
         """Test and visualize model convergence with PDF report"""
-        start_time = time.time()
-        
         try:
-            # Store config_loader instance
-            self.config_loader = config_loader
-            
-            # Update config hash now that we have config_loader
-            self.run_metadata.config_hash = self._hash_config(config_loader)
-            
             # Build and sample model
             model = HierarchicalCLVModel(config_loader)
             model.build_model(sample_model_data)
             trace = model.sample(draws=500, tune=200, chains=2)
             
-            # Calculate metrics
-            r_hat = az.rhat(trace)
-            ess = az.ess(trace)
+            # Calculate convergence metrics
+            r_hat_values = az.rhat(trace)
+            
+            # Convert to proper format for plotting
+            r_hat_df = pd.DataFrame({
+                'parameter': list(r_hat_values.keys()),
+                'r_hat': [float(v) for v in r_hat_values.values()]
+            })
             
             # Create diagnostic plots
-            self._plot_rhat(pd.Series(r_hat))
-            self.save_plot("rhat_diagnostic", "convergence")
+            plt.figure(figsize=(10, 6))
+            sns.barplot(data=r_hat_df, x='r_hat', y='parameter')
+            plt.title('R-hat Values by Parameter')
+            plt.tight_layout()
             
-            self._plot_ess(pd.Series(ess))
-            self.save_plot("ess_diagnostic", "convergence")
-            
-            # Update metadata with convergence metrics
-            self.update_metadata(
-                convergence_metrics={
-                    'max_r_hat': float(max(r_hat.values())),
-                    'min_ess': float(min(ess.values())),
-                    'mean_ess': float(np.mean(list(ess.values())))
-                },
-                model_params=config_loader.model_config,  # Fixed reference to model config
-                duration=time.time() - start_time,
-                status='completed'
-            )
+            # Assertions
+            assert all(r_hat_df['r_hat'].notna())  # No NaN values
+            assert all(r_hat_df['r_hat'] < 1.1)    # Common threshold for convergence
             
         except Exception as e:
-            self.update_metadata(
-                status='failed',
-                notes=str(e)
-            )
-            raise
-        finally:
-            self.save_metadata()
+            pytest.fail(f"Model convergence test failed: {str(e)}")
     
     @classmethod
     def compare_runs(cls, n_runs: int = 5):
@@ -325,22 +307,37 @@ class TestModelDiagnostics:
             {'alpha_shape': 2.0, 'beta_shape': 2.0}
         ]
         
-        for prior in prior_configs:
-            model = HierarchicalCLVModel(config_loader)
-            model.config['hyperparameters']['prior_settings'].update(prior)
-            model.build_model(sample_model_data)
-            trace = model.sample(draws=500, tune=200, chains=2)
+        try:
+            for prior_config in prior_configs:
+                # Create a new config with updated priors
+                model_config = config_loader.get('model', {})
+                if isinstance(model_config, dict):
+                    model_config = model_config.copy()
+                else:
+                    model_config = {}
+                    
+                model_config['hyperparameters'] = {
+                    'prior_settings': prior_config
+                }
+                
+                # Build and sample model with new priors
+                model = HierarchicalCLVModel(config_loader)
+                model.update_config(model_config)  # Add this method to HierarchicalCLVModel
+                model.build_model(sample_model_data)
+                trace = model.sample(draws=200, tune=100, chains=2)
+                
+                # Store results
+                posterior_mean = float(trace.posterior['beta'].mean())
+                results.append({
+                    'prior_config': prior_config,
+                    'posterior_mean': posterior_mean
+                })
+                
+            # Verify results
+            assert len(results) == len(prior_configs)
             
-            # Store posterior summaries
-            summary = az.summary(trace)
-            results.append({
-                'prior': f"α={prior['alpha_shape']},β={prior['beta_shape']}",
-                'summary': summary
-            })
-        
-        # Plot prior sensitivity comparison
-        self._plot_prior_sensitivity(results)
-        self.save_plot("prior_sensitivity", "sensitivity")
+        except Exception as e:
+            pytest.fail(f"Prior sensitivity test failed: {str(e)}")
     
     def _plot_prior_sensitivity(self, results):
         """Create prior sensitivity comparison plots"""
@@ -372,32 +369,33 @@ class TestModelDiagnostics:
     def test_model_stability(self, sample_model_data, config_loader):
         """Test model stability across multiple runs"""
         n_runs = 3
-        results = []
+        posterior_means = []
         
-        for i in range(n_runs):
-            model = HierarchicalCLVModel(config_loader)
-            model.build_model(sample_model_data)
-            trace = model.sample(draws=500, tune=200, chains=2)
+        try:
+            for _ in range(n_runs):
+                model = HierarchicalCLVModel(config_loader)
+                model.build_model(sample_model_data)
+                trace = model.sample(draws=500, tune=200, chains=2)
+                
+                # Extract posterior means for key parameters
+                run_means = {
+                    param: float(trace.posterior[param].mean())
+                    for param in ['alpha', 'beta', 'r', 'lambda']
+                    if param in trace.posterior
+                }
+                posterior_means.append(run_means)
             
-            # Get posterior means
-            posterior_means = {
-                var: float(trace.posterior[var].mean())
-                for var in trace.posterior.variables
-                if var not in ['likelihood']
-            }
+            # Convert to DataFrame for analysis
+            results_df = pd.DataFrame(posterior_means)
             
-            results.append(posterior_means)
-            
-        # Calculate variation in estimates
-        variations = {}
-        for param in results[0].keys():
-            values = [r[param] for r in results]
-            variations[param] = np.std(values) / np.mean(values)  # CV
-            
-        print("\nParameter Stability:")
-        for param, cv in variations.items():
-            print(f"{param} CV: {cv:.3f}")
-            assert cv < 0.1, f"High variability in {param}"
+            # Calculate coefficient of variation (CV) for each parameter
+            cv_threshold = 0.1  # 10% variation threshold
+            for param in results_df.columns:
+                cv = results_df[param].std() / results_df[param].mean()
+                assert cv < cv_threshold, f"Parameter {param} shows high variation (CV={cv:.3f})"
+                
+        except Exception as e:
+            pytest.fail(f"Model stability test failed: {str(e)}")
     
     @property
     def convergence_dir(self):

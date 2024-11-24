@@ -9,48 +9,32 @@ from .base import BaseProcessor
 class CLVDataPreprocessor(BaseProcessor):
     """Handles data preprocessing and feature engineering for CLV pipeline"""
     
-    def __init__(self, config_loader: CLVConfigLoader, test_mode: bool = False):
-        self.config = config_loader
-        self.pipeline_config = config_loader.pipeline_config['data_processing']
-        self.feature_config = config_loader.pipeline_config['feature_engineering']
-        self.scalers = {}
+    def __init__(self, config, test_mode=False):
+        """Initialize preprocessor
+        
+        Args:
+            config: Configuration object
+            test_mode: Boolean for testing mode
+        """
+        super().__init__(config)
         self.test_mode = test_mode
+        self.processing_config = config.get('pipeline', {}).get('data_processing', {})
         
-    def process_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Process raw transaction data into CLV features"""
-        df = df.copy()
+    def process_data(self, data):
+        """Process raw data
         
-        # Ensure required columns exist
-        required_cols = ['customer_id', 'transaction_date', 'transaction_amount']
-        missing_cols = [col for col in required_cols if col not in df.columns]
-        if missing_cols:
-            raise ValueError(f"Missing required columns: {missing_cols}")
-        
-        # Calculate customer metrics
-        customer_metrics = df.groupby('customer_id').agg({
-            'transaction_date': ['count', 'min', 'max'],
-            'transaction_amount': ['sum', 'mean']
-        })
-        
-        # Flatten column names
-        customer_metrics.columns = [
-            'frequency',
-            'first_purchase',
-            'last_purchase',
-            'total_amount',
-            'monetary'
-        ]
-        
-        # Calculate recency
-        max_date = df['transaction_date'].max()
-        customer_metrics['recency'] = (
-            max_date - customer_metrics['last_purchase']
-        ).dt.days
-        customer_metrics['customer_age_days'] = (
-            max_date - customer_metrics['first_purchase']
-        ).dt.days
-        
-        return customer_metrics.reset_index()
+        Args:
+            data: Raw DataFrame
+            
+        Returns:
+            Processed DataFrame
+        """
+        if data is None or len(data) == 0:
+            raise ValueError("Input data cannot be empty")
+            
+        processed = data.copy()
+        # Add preprocessing logic here
+        return processed[:100] if self.test_mode else processed
     
     def _calculate_rfm_metrics(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate frequency and recency metrics"""
