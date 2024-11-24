@@ -3,5 +3,71 @@
         {
             "path": "."
         }
-    ]
+    ],
+    "settings": {
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+        "python.analysis.extraPaths": [
+            "${workspaceFolder}/src"
+        ],
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": true,
+        "python.formatting.provider": "black",
+        "editor.formatOnSave": true,
+        "files.exclude": {
+            "**/__pycache__": true,
+            "**/.pytest_cache": true,
+            "**/*.pyc": true,
+            ".coverage": true,
+            "htmlcov": true
+        },
+        "files.watcherExclude": {
+            "**/.git/**": true,
+            "**/.venv/**": true,
+            "**/node_modules/**": true
+        }
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-python.python",
+            "ms-python.vscode-pylance",
+            "redhat.vscode-yaml",
+            "googlecloudtools.cloudcode",
+            "eamodio.gitlens",
+            "ms-toolsai.jupyter"
+        ]
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "name": "Python: Current File",
+                "type": "python",
+                "request": "launch",
+                "program": "${file}",
+                "console": "integratedTerminal",
+                "justMyCode": true,
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}/src"
+                }
+            },
+            {
+                "name": "Python: Dev Runner",
+                "type": "python",
+                "request": "launch",
+                "program": "${workspaceFolder}/src/scripts/dev_runner.py",
+                "args": [
+                    "run-pipeline",
+                    "--input-table",
+                    "your-project.dataset.table",
+                    "--output-bucket",
+                    "gs://your-bucket/output"
+                ],
+                "console": "integratedTerminal",
+                "justMyCode": true,
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}/src"
+                }
+            }
+        ]
+    }
 }
