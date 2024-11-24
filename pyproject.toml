@@ -54,3 +54,9 @@ include = '\.pyi?$'
 [tool.isort]
 profile = "black"
 multi_line_output = 3
+
+[tool.poetry.scripts]
+test = "pytest:main"
+test-convergence = "pytest tests/test_clv/test_model_diagnostics.py"
+test-performance = "pytest tests/test_clv/test_performance.py"
+test-integration = "pytest tests/test_clv/test_integration.py"
