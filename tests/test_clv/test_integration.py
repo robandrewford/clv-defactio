@@ -24,21 +24,20 @@ class TestCLVPipelineIntegration:
     ):
         """Test full pipeline from data preprocessing to model deployment"""
         try:
-            # Create a proper CLVConfigLoader instance
-            config = CLVConfigLoader()  # Use default config directory
+            # Use the provided config_loader instead of creating new one
+            preprocessor = CLVDataPreprocessor(config_loader)
             
             # 1. Preprocess Data
-            preprocessor = CLVDataPreprocessor(config)
             assert isinstance(preprocessor, BaseProcessor)
             processed_data = preprocessor.process_data(sample_transaction_data)
             
             # 2. Create Segments
-            segmenter = CustomerSegmentation(config)
+            segmenter = CustomerSegmentation(config_loader)
             assert isinstance(segmenter, BaseProcessor)
             segmented_data, model_data = segmenter.create_segments(processed_data)
             
             # 3. Train Model
-            model = HierarchicalCLVModel(config)
+            model = HierarchicalCLVModel(config_loader)
             assert isinstance(model, BaseModel)
             model.build_model(model_data)
             
@@ -57,7 +56,7 @@ class TestCLVPipelineIntegration:
             assert 'predicted_value' in predictions.columns
             
             # 5. Save Model
-            registry = CLVModelRegistry(config)
+            registry = CLVModelRegistry(config_loader)
             metrics = {
                 'rmse': np.random.rand(),
                 'mae': np.random.rand(),
@@ -82,12 +81,19 @@ class TestCLVPipelineIntegration:
         mock_gcs_bucket
     ):
         """Test incremental model update with new data"""
-        # Ensure we have data on both sides of the date split
-        sample_transaction_data['transaction_date'] = pd.date_range(
-            start='2023-01-01',
-            end='2023-12-31',
-            periods=len(sample_transaction_data)
-        )
+        # Ensure we have data on both sides of the date split with enough variation
+        dates = pd.date_range(start='2023-01-01', end='2023-12-31', periods=len(sample_transaction_data))
+        values = np.array([
+            [100, 1, 100],  # Different RFM values for each transaction
+            [200, 2, 150],
+            [300, 3, 200],
+            [400, 4, 250]
+        ])
+        
+        sample_transaction_data['transaction_date'] = dates
+        sample_transaction_data['frequency'] = values[:, 1]
+        sample_transaction_data['monetary'] = values[:, 2]
+        sample_transaction_data['recency'] = np.linspace(10, 100, len(sample_transaction_data))
         
         # 1. Train initial model
         preprocessor = CLVDataPreprocessor(config_loader)
@@ -129,15 +135,17 @@ class TestCLVPipelineIntegration:
         """Test error handling across pipeline components"""
         # 1. Test missing data handling
         bad_data = sample_transaction_data.copy()
-        bad_data.loc[0:10, 'transaction_amount'] = np.nan
+        # Only set some values to NaN, not all
+        bad_data.loc[0:1, 'transaction_amount'] = np.nan
         
         preprocessor = CLVDataPreprocessor(config_loader)
-        # Fix: Changed process() to process_data() to match the class method name
         cleaned_data = preprocessor.process_data(bad_data)
         
-        # Update your assertion to match the actual number of NaN values removed
-        n_missing = bad_data['transaction_amount'].isna().sum()
-        assert len(cleaned_data) == len(bad_data) - n_missing
+        # Check that the data was processed but NaN values were handled
+        assert not cleaned_data['transaction_amount'].isna().any()
+        
+        # Also verify that we have reasonable values
+        assert (cleaned_data['transaction_amount'] > 0).all()
         
         # 2. Test invalid segment configuration
         segmenter = CustomerSegmentation(config_loader)
@@ -175,6 +183,8 @@ class TestCLVPipelineIntegration:
             ],
             'transaction_amount': np.random.lognormal(3, 1, n_customers),
             'monetary': np.random.lognormal(3, 1, n_customers),
+            'recency': np.random.randint(1, 365, n_customers),  # Added recency
+            'frequency': np.random.randint(1, 10, n_customers), # Added frequency
             'transaction_id': range(n_customers),
             'category': np.random.choice(categories, n_customers),
             'brand': np.random.choice(brands, n_customers),

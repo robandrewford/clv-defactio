@@ -19,6 +19,8 @@ from src.pipeline.clv.base import BaseProcessor, BaseModel
 # Test utilities
 class MockConfigLoader:
     """Mock config loader for testing"""
+    __test__ = False  # Tell pytest not to collect this class
+    
     def __init__(self):
         self.config = {}
     
@@ -27,18 +29,32 @@ class MockConfigLoader:
 
 class TestBaseProcessor(BaseProcessor):
     """Test implementation of BaseProcessor"""
-    def process_data(self, data):
-        if not isinstance(self.config, (dict, MockConfigLoader)):
+    __test__ = False  # Tell pytest not to collect this class
+    
+    def __init__(self, config):
+        if config is None:
+            raise ValueError("Configuration cannot be None")
+        # Only accept dict or our specific config loader types
+        if not (isinstance(config, dict) or 
+                isinstance(config, MockConfigLoader) or
+                type(config).__name__ == 'MockConfigLoader'):
             raise ValueError("Invalid config type")
-        
-        required_features = ['recency', 'frequency', 'monetary']
-        missing_features = [f for f in required_features if f not in data.columns]
+        super().__init__(config)
+        self.features = ['customer_id', 'recency', 'frequency', 'monetary']
+
+    def process_data(self, data):
+        # First check for required features
+        missing_features = [f for f in self.features if f not in data.columns]
         if missing_features:
             raise ValueError(f"Missing required features: {missing_features}")
-        return data
+
+        # Process the data (dummy implementation for testing)
+        return data.copy()
 
 class TestBaseModel(BaseModel):
     """Test implementation of BaseModel"""
+    __test__ = False  # Tell pytest not to collect this class
+    
     def build_model(self, data):
         self._model = {"data": data}
         return self._model

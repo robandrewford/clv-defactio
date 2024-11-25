@@ -52,14 +52,21 @@ class TestCLVModelRegistry:
         """Test handling of invalid model types"""
         registry = CLVModelRegistry(config_loader)
         
+        # Create a mock invalid model that doesn't inherit from BaseModel
         class InvalidModel:
-            pass
-            
+            def __init__(self):
+                self.trace = None
+                self.model_config = {}
+        
         invalid_model = InvalidModel()
         metrics = {'rmse': 0.5}
         
-        with pytest.raises(TypeError):
+        # Test that saving an invalid model type raises TypeError
+        with pytest.raises(TypeError) as exc_info:
             registry.save_model(invalid_model, metrics)
+        
+        # Verify the error message
+        assert "Model must be an instance of BaseModel" in str(exc_info.value)
 
     def test_version_management(self, config_loader, mock_gcs_bucket):
         """Test version management functionality"""

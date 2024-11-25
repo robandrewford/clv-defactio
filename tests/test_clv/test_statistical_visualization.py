@@ -39,8 +39,8 @@ class TestCLVVisualization:
     def test_segment_visualization(self, config_loader, sample_customer_features):
         """Test segment visualization"""
         viz = CLVVisualization(config_loader)
-        fig = viz.plot_segments(sample_customer_features)
-        
+        features = ['recency', 'frequency']  # Specify features
+        fig = viz.plot_segments(sample_customer_features, features)
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
 
@@ -78,6 +78,6 @@ class TestCLVVisualization:
             'r_hat': np.random.rand(10)
         }
         
-        fig = viz.plot_diagnostics(diagnostics)
+        fig = viz.plot_convergence_diagnostics(diagnostics)
         assert isinstance(fig, plt.Figure)
         plt.close(fig) 

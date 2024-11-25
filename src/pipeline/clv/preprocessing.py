@@ -20,11 +20,11 @@ class CLVDataPreprocessor(BaseProcessor):
         self.test_mode = test_mode
         self.processing_config = config.get('pipeline', {}).get('data_processing', {})
         
-    def process_data(self, data):
-        """Process raw data
+    def process_data(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Process data for CLV modeling
         
         Args:
-            data: Raw DataFrame
+            data: Input DataFrame
             
         Returns:
             Processed DataFrame
@@ -32,9 +32,31 @@ class CLVDataPreprocessor(BaseProcessor):
         if data is None or len(data) == 0:
             raise ValueError("Input data cannot be empty")
             
-        processed = data.copy()
-        # Add preprocessing logic here
-        return processed[:100] if self.test_mode else processed
+        # Create copy to avoid modifying original
+        processed_df = data.copy()
+        
+        # Handle missing values
+        for col in processed_df.columns:
+            if processed_df[col].isna().any():
+                if col in ['transaction_amount', 'monetary']:
+                    # For monetary columns:
+                    # 1. Try customer mean
+                    customer_means = processed_df.groupby('customer_id')[col].transform(
+                        lambda x: x.mean() if not x.isna().all() else None
+                    )
+                    processed_df[col] = processed_df[col].fillna(customer_means)
+                    
+                    # 2. If still have NaN, use global mean of non-NaN values
+                    if processed_df[col].isna().any():
+                        global_mean = processed_df[col].dropna().mean()
+                        if pd.isna(global_mean):  # If all values are NaN
+                            global_mean = 100  # Default fallback value
+                        processed_df[col] = processed_df[col].fillna(global_mean)
+                else:
+                    # For other columns, use forward fill then backward fill
+                    processed_df[col] = processed_df[col].fillna(method='ffill').fillna(method='bfill')
+        
+        return processed_df
     
     def _calculate_rfm_metrics(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate frequency and recency metrics"""

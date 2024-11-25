@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+import pymc as pm
 from src.pipeline.clv import HierarchicalCLVModel
 from src.pipeline.clv.base import BaseModel
 
@@ -28,8 +29,16 @@ class TestHierarchicalCLVModel:
         
         # Build model
         built_model = model.build_model(data)
-        assert built_model is not None
-        assert model.model is not None
+        
+        # Verify model structure
+        assert isinstance(built_model, pm.Model)
+        assert 'alpha' in built_model.named_vars
+        assert 'beta' in built_model.named_vars
+        assert 'lambda' in built_model.named_vars
+        assert 'freq_obs' in built_model.named_vars
+        assert 'mu_m' in built_model.named_vars
+        assert 'sigma_m' in built_model.named_vars
+        assert 'monetary' in built_model.named_vars
 
     def test_model_interface(self, config_loader):
         """Test model interface compliance"""

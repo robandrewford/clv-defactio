@@ -81,6 +81,25 @@ class TestCLVPipelinePerformance:
             preprocessor = CLVDataPreprocessor(config_loader)
             processed_data = preprocessor.process_data(data)
             
+            # Calculate RFM metrics with correct column names
+            customer_stats = processed_data.groupby('customer_id').agg({
+                'transaction_date': lambda x: (datetime.now() - pd.to_datetime(max(x))).days,
+                'customer_id': 'count',
+                'transaction_amount': 'sum'
+            }).rename(columns={
+                'transaction_date': 'recency',
+                'customer_id': 'frequency',
+                'transaction_amount': 'monetary'
+            }).reset_index()
+            
+            # Drop duplicate columns after merge
+            processed_data = processed_data.drop(columns=[
+                'recency', 'frequency', 'monetary'
+            ], errors='ignore')
+            
+            # Merge RFM metrics with processed data
+            processed_data = processed_data.merge(customer_stats, on='customer_id')
+            
             segmenter = CustomerSegmentation(config_loader)
             segmented_data, model_data = segmenter.create_segments(processed_data)
             
@@ -89,7 +108,6 @@ class TestCLVPipelinePerformance:
             model.sample(draws=50, tune=25, chains=2)
             
             # Force garbage collection
-            import gc
             gc.collect()
         
         final_memory = psutil.Process().memory_info().rss
@@ -135,7 +153,8 @@ class TestCLVPipelinePerformance:
         
     def _generate_test_data(self, n_records):
         """Generate test transaction data"""
-        return pd.DataFrame({
+        # Create base transaction data
+        data = pd.DataFrame({
             'customer_id': np.random.randint(1, 1000, n_records),
             'transaction_date': [
                 datetime.now() - timedelta(days=np.random.randint(0, 365))
@@ -143,6 +162,20 @@ class TestCLVPipelinePerformance:
             ],
             'transaction_amount': np.random.lognormal(3, 1, n_records)
         })
+        
+        # Calculate required features for segmentation
+        customer_stats = data.groupby('customer_id').agg({
+            'transaction_date': lambda x: (datetime.now() - max(x)).days,  # recency
+            'customer_id': 'count',  # frequency
+            'transaction_amount': 'sum'  # monetary
+        }).rename(columns={
+            'transaction_date': 'recency',
+            'customer_id': 'frequency',
+            'transaction_amount': 'monetary'
+        })
+        
+        # Merge back to transaction data
+        return data.merge(customer_stats, on='customer_id')
         
     def _generate_customer_data(self, n_customers):
         """Generate test customer data for modeling"""

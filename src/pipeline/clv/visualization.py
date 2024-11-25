@@ -1,9 +1,10 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import arviz as az
 from .base import BaseProcessor
+import numpy as np
 
 class CLVVisualization(BaseProcessor):
     """Visualization component for CLV analysis"""
@@ -21,6 +22,35 @@ class CLVVisualization(BaseProcessor):
         if self.style != 'default':
             sns.set_style(self.style)
 
+    def _create_barplot(self, data: pd.DataFrame, x: str, y: str, ax: plt.Axes, title: str):
+        """Create a barplot using matplotlib to avoid seaborn deprecation warning
+        
+        Args:
+            data: DataFrame containing the data
+            x: Column name for x-axis
+            y: Column name for y-axis
+            ax: Matplotlib axes object
+            title: Plot title
+        """
+        # Convert to categorical if not already
+        if not isinstance(data[y].dtype, pd.CategoricalDtype):
+            data = data.copy()
+            data[y] = pd.Categorical(data[y])
+            
+        # Create barplot manually
+        bars = ax.barh(range(len(data)), data[x], align='center')
+        
+        # Set y-tick labels
+        ax.set_yticks(range(len(data)))
+        ax.set_yticklabels(data[y])
+        
+        # Set labels and title
+        ax.set_xlabel(x)
+        ax.set_ylabel(y)
+        ax.set_title(title)
+        
+        return bars
+
     def plot_trace(self, trace: Dict[str, Any], params: Optional[list] = None):
         """Plot MCMC trace
         
@@ -28,52 +58,54 @@ class CLVVisualization(BaseProcessor):
             trace: MCMC trace dictionary
             params: Optional list of parameters to plot
         """
+        # Convert the trace format to match what's expected
+        posterior = {
+            'alpha': trace['samples'][:, 0],
+            'beta': trace['samples'][:, 1],
+            'lambda': trace['samples'][:, 2],
+            'r': trace['samples'][:, 3]
+        }
+        trace['posterior'] = posterior
+        
         if not params:
             params = list(trace['posterior'].keys())
             
-        fig, axes = plt.subplots(len(params), 2, figsize=self.figure_size)
+        fig, axes = plt.subplots(len(params), 2, figsize=(12, 4*len(params)))
         
-        for idx, param in enumerate(params):
-            data = trace['posterior'][param]
-            
+        for i, param in enumerate(params):
             # Plot trace
-            if len(axes.shape) == 1:
-                ax1, ax2 = axes[0], axes[1]
-            else:
-                ax1, ax2 = axes[idx, 0], axes[idx, 1]
-                
-            ax1.plot(data.T)
-            ax1.set_title(f'{param} trace')
+            axes[i, 0].plot(trace['posterior'][param])
+            axes[i, 0].set_title(f'{param} trace')
             
-            # Plot distribution
-            sns.kdeplot(data.flatten(), ax=ax2)
-            ax2.set_title(f'{param} distribution')
+            # Plot histogram
+            axes[i, 1].hist(trace['posterior'][param], bins=30)
+            axes[i, 1].set_title(f'{param} histogram')
             
         plt.tight_layout()
         return fig
 
-    def plot_segments(self, df: pd.DataFrame, features: list):
+    def plot_segments(self, data, features: List[str]):
         """Plot customer segments
         
         Args:
-            df: Segmented DataFrame
-            features: Features to plot
+            data: DataFrame with customer features
+            features: List of features to use for visualization
         """
         if len(features) < 2:
-            raise ValueError("Need at least 2 features for segment visualization")
+            raise ValueError("Need at least 2 features for visualization")
             
-        fig = plt.figure(figsize=self.figure_size)
+        fig, ax = plt.subplots(figsize=(10, 6))
         
-        # Create scatter plot of first two features
-        plt.scatter(
-            df[features[0]], 
-            df[features[1]], 
-            c=df['segment'], 
+        scatter = ax.scatter(
+            data[features[0]], 
+            data[features[1]],
+            c=data.get('segment', np.zeros(len(data))),
             cmap='viridis'
         )
-        plt.xlabel(features[0])
-        plt.ylabel(features[1])
-        plt.title('Customer Segments')
+        
+        ax.set_xlabel(features[0])
+        ax.set_ylabel(features[1])
+        plt.colorbar(scatter, label='Segment')
         
         return fig
 
@@ -105,35 +137,55 @@ class CLVVisualization(BaseProcessor):
         """Plot model convergence diagnostics
         
         Args:
-            trace: MCMC trace
+            trace: Either MCMC trace or diagnostics dictionary
         """
-        if not isinstance(trace, dict) or 'posterior' not in trace:
-            raise ValueError("Invalid trace format")
-            
-        # Calculate R-hat statistics
-        r_hat = az.rhat(trace)
-        
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=self.figure_size)
         
-        # Plot R-hat values
+        # Check if we're dealing with raw diagnostics or a trace
+        if all(key in trace for key in ['convergence', 'effective_sample_size', 'r_hat']):
+            # Use provided diagnostics directly
+            r_hat_values = trace['r_hat']
+            n_eff_values = trace['effective_sample_size']
+            parameters = [f'param_{i}' for i in range(len(r_hat_values))]
+        elif 'posterior' in trace:
+            # Calculate diagnostics from trace
+            r_hat = az.rhat(trace)
+            n_eff = az.ess(trace)
+            
+            r_hat_values = [float(v) for v in r_hat.values()]
+            n_eff_values = [float(v) for v in n_eff.values()]
+            parameters = list(r_hat.keys())
+        else:
+            raise ValueError("Invalid trace format. Must contain either 'posterior' or diagnostic metrics.")
+        
+        # Create DataFrames for plotting
         r_hat_df = pd.DataFrame({
-            'parameter': list(r_hat.keys()),
-            'r_hat': [float(v) for v in r_hat.values()]
+            'parameter': parameters,
+            'r_hat': r_hat_values
         })
         
-        sns.barplot(data=r_hat_df, x='r_hat', y='parameter', ax=ax1)
-        ax1.set_title('R-hat Values')
+        n_eff_df = pd.DataFrame({
+            'parameter': parameters,
+            'n_eff': n_eff_values
+        })
+        
+        # Create plots using the new method
+        self._create_barplot(
+            data=r_hat_df,
+            x='r_hat',
+            y='parameter',
+            ax=ax1,
+            title='R-hat Values'
+        )
         ax1.axvline(x=1.1, color='r', linestyle='--')
         
-        # Plot effective sample size
-        n_eff = az.ess(trace)
-        n_eff_df = pd.DataFrame({
-            'parameter': list(n_eff.keys()),
-            'n_eff': [float(v) for v in n_eff.values()]
-        })
-        
-        sns.barplot(data=n_eff_df, x='n_eff', y='parameter', ax=ax2)
-        ax2.set_title('Effective Sample Size')
+        self._create_barplot(
+            data=n_eff_df,
+            x='n_eff',
+            y='parameter',
+            ax=ax2,
+            title='Effective Sample Size'
+        )
         
         plt.tight_layout()
         return fig

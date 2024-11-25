@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+import warnings
 
 # Add src directory to Python path
 src_path = str(Path(__file__).parent.parent / 'src')
@@ -18,83 +19,90 @@ from unittest.mock import MagicMock
 CATEGORIES = ['Electronics', 'Clothing', 'Food', 'Home']
 BRANDS = ['BrandA', 'BrandB', 'BrandC', 'BrandD']
 
+# Add at the top of conftest.py, before other fixtures
+def pytest_configure(config):
+    """Configure pytest to ignore specific warnings"""
+    warnings.filterwarnings('ignore', category=DeprecationWarning, 
+                          module='seaborn._oldcore')
+    warnings.filterwarnings('ignore', category=FutureWarning, 
+                          module='seaborn.categorical')
+    warnings.filterwarnings('ignore', category=UserWarning, 
+                          module='arviz.data.base')
+
 @pytest.fixture
 def config_loader():
-    """Create a mock config loader for testing"""
+    """Mock config loader with required configuration"""
     class MockConfigLoader:
         def __init__(self):
+            # Add pipeline_config attribute
             self.pipeline_config = {
-                'data_processing': {
-                    'preprocessing': {
-                        'feature_columns': ['frequency', 'recency', 'monetary'],
-                        'target_column': 'customer_value'
-                    },
-                    'feature_engineering': {
-                        'transforms': ['log', 'standardize'],
-                        'interaction_terms': True,
-                        'polynomial_degree': 2
-                    }
-                },
                 'storage': {
-                    'model_path': 'models/',
-                    'data_path': 'data/',
+                    'type': 'gcs',  # Specify storage type
+                    'path': '/tmp/models',
+                    'model_prefix': 'models/clv',
+                    # Add GCS config at root level of storage
                     'gcs': {
-                        'bucket_name': 'test-bucket',
-                        'project_id': 'test-project',
-                        'model_prefix': 'models/clv'
+                        'bucket_name': 'mock-bucket',
+                        'project_id': 'mock-project',
+                        'model_prefix': 'models/clv',
+                        'path': 'models'
                     },
                     'model_storage': {
-                        'type': 'local',
-                        'path': 'tests/data/models'
+                        'type': 'gcs',
+                        'path': '/tmp/models'
+                    },
+                    'model_registry': {
+                        'bucket': 'mock-bucket',
+                        'path': 'models',
+                        'metadata_file': 'model_metadata.json'
                     }
                 },
-                'visualization': {
-                    'plot_style': 'darkgrid',
-                    'figure_size': (10, 6)
-                },
-                'model': {
-                    'hyperparameters': {
-                        'prior_settings': {
-                            'alpha_shape': 1.0,
-                            'beta_shape': 1.0
-                        }
-                    }
-                },
-                'segment_rules': {
-                    'rfm': {
-                        'recency_bins': [0, 30, 60, 90],
-                        'frequency_bins': [1, 2, 3, 4],
-                        'monetary_bins': [0, 100, 500, 1000]
-                    }
-                },
-                'segment_config': {
-                    'n_segments': 3,
+                'data_processing': {
                     'features': ['recency', 'frequency', 'monetary'],
-                    'method': 'kmeans',
-                    'segment_ids': ['low', 'medium', 'high']
+                    'remove_outliers': True,
+                    'outlier_threshold': 3
+                },
+                'segmentation': {
+                    'n_clusters': 2,
+                    'features': ['recency', 'frequency', 'monetary']
+                },
+                'model_parameters': {
+                    'chains': 4,
+                    'draws': 2000,
+                    'tune': 1000,
+                    'target_accept': 0.8,
+                    'random_seed': 42
                 }
             }
-            self.config = self.pipeline_config  # For backward compatibility
+
+            self.model_config = {
+                'model_type': 'hierarchical_clv',
+                'parameters': {
+                    'chains': 4,
+                    'draws': 2000,
+                    'tune': 1000,
+                    'target_accept': 0.8,
+                    'random_seed': 42
+                }
+            }
+
+        def get(self, *args, **kwargs):
+            if args[0] == 'model':
+                return self.model_config
+            elif args[0] == 'pipeline':
+                return self.pipeline_config
+            return {}
             
-        def get(self, key, default=None):
-            """Get configuration value by key"""
-            # Handle nested keys with dot notation
-            if '.' in key:
-                keys = key.split('.')
-                value = self.pipeline_config
-                for k in keys:
-                    if isinstance(value, dict):
-                        value = value.get(k, default)
-                    else:
-                        return default
-                return value
+        def get_config(self, config_type):
+            """Mock get_config method for model configuration"""
+            if config_type == 'model':
+                return self.model_config
+            elif config_type == 'pipeline':
+                return self.pipeline_config
+            return {}
             
-            # Handle top level keys
-            return self.pipeline_config.get(key, default)
-            
-        def get_config(self, key, default=None):
-            """Alias for get() method for backward compatibility"""
-            return self.get(key, default)
+        def __getitem__(self, key):
+            return self.get(key)
             
     return MockConfigLoader()
 
@@ -118,15 +126,19 @@ def sample_model_data():
 
 @pytest.fixture
 def sample_transaction_data():
-    """Create a sample transaction DataFrame for testing"""
-    return pd.DataFrame({
+    """Create sample transaction data with required features"""
+    data = pd.DataFrame({
         'customer_id': [1, 1, 2, 2],
         'transaction_date': ['2023-01-01', '2023-02-01', '2023-01-15', '2023-03-01'],
-        'amount': [100, 200, 150, 300],
+        'transaction_amount': [100, 200, 150, 300],
         'recency': [30, 30, 45, 45],
         'frequency': [2, 2, 2, 2],
-        'monetary': [150, 150, 225, 225]
+        'monetary': [150, 150, 225, 225],
+        'T': [90, 90, 90, 90]
     })
+    # Ensure segment_ids match customer_ids
+    data['segment'] = data['customer_id'] - 1  # 0-based indexing for segments
+    return data
 
 @pytest.fixture
 def mock_gcs_bucket():
