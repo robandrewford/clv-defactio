@@ -24,7 +24,8 @@
             "**/.git/**": true,
             "**/.venv/**": true,
             "**/node_modules/**": true
-        }
+        },
+        "makefile.configureOnOpen": false
     },
     "extensions": {
         "recommendations": [
@@ -41,7 +42,7 @@
         "configurations": [
             {
                 "name": "Python: Current File",
-                "type": "python",
+                "type": "debugpy",
                 "request": "launch",
                 "program": "${file}",
                 "console": "integratedTerminal",
@@ -52,7 +53,7 @@
             },
             {
                 "name": "Python: Dev Runner",
-                "type": "python",
+                "type": "debugpy",
                 "request": "launch",
                 "program": "${workspaceFolder}/src/scripts/dev_runner.py",
                 "args": [

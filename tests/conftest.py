@@ -40,11 +40,16 @@ def config_loader():
                     'data_path': 'data/',
                     'gcs': {
                         'bucket_name': 'test-bucket',
-                        'project_id': 'test-project'
+                        'project_id': 'test-project',
+                        'model_prefix': 'models/clv'
+                    },
+                    'model_storage': {
+                        'type': 'local',
+                        'path': 'tests/data/models'
                     }
                 },
                 'visualization': {
-                    'plot_style': 'seaborn',
+                    'plot_style': 'darkgrid',
                     'figure_size': (10, 6)
                 },
                 'model': {
@@ -65,7 +70,8 @@ def config_loader():
                 'segment_config': {
                     'n_segments': 3,
                     'features': ['recency', 'frequency', 'monetary'],
-                    'method': 'kmeans'
+                    'method': 'kmeans',
+                    'segment_ids': ['low', 'medium', 'high']
                 }
             }
             self.config = self.pipeline_config  # For backward compatibility
@@ -116,7 +122,10 @@ def sample_transaction_data():
     return pd.DataFrame({
         'customer_id': [1, 1, 2, 2],
         'transaction_date': ['2023-01-01', '2023-02-01', '2023-01-15', '2023-03-01'],
-        'amount': [100, 200, 150, 300]
+        'amount': [100, 200, 150, 300],
+        'recency': [30, 30, 45, 45],
+        'frequency': [2, 2, 2, 2],
+        'monetary': [150, 150, 225, 225]
     })
 
 @pytest.fixture

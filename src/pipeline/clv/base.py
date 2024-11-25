@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
 import logging
+from typing import Any, Dict, List, Optional, Tuple, Union
+import pandas as pd
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +90,11 @@ class BaseModel(ABC):
     def model(self):
         """Get the underlying model"""
         return self._model
+
+    @model.setter
+    def model(self, value):
+        """Set the underlying model"""
+        self._model = value
 
     @abstractmethod
     def build_model(self, data):
