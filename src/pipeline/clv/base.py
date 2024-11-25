@@ -1,64 +1,124 @@
 from abc import ABC, abstractmethod
-import pandas as pd
-from typing import Dict, Any, Optional, Union, Tuple
+import logging
 
-class BaseProcessor:
+logger = logging.getLogger(__name__)
+
+class BaseProcessor(ABC):
+    """
+    Base class for all data processing components in the CLV pipeline.
+    """
     def __init__(self, config):
-        """Initialize base processor
+        """
+        Initialize base processor.
         
         Args:
-            config: Configuration object
+            config: Configuration object or dict containing processor settings
         """
-        self.config = config
+        self._config = config
         self._validate_config()
+        logger.debug(f"Initialized {self.__class__.__name__} with config")
 
     def _validate_config(self):
-        """Validate configuration"""
-        if not hasattr(self, 'config'):
-            raise ValueError("Configuration not properly initialized")
+        """Validate the configuration"""
+        if self._config is None:
+            raise ValueError("Configuration cannot be None")
 
+    @property
+    def config(self):
+        """Get configuration"""
+        return self._config
+
+    @abstractmethod
     def process_data(self, data):
-        """Process data method to be implemented by child classes"""
+        """
+        Process input data. Must be implemented by child classes.
+        
+        Args:
+            data: Input data to process
+            
+        Returns:
+            Processed data
+            
+        Raises:
+            NotImplementedError: If child class doesn't implement this method
+        """
         raise NotImplementedError("Subclasses must implement process_data method")
 
-    def get_config(self, key, default=None):
-        """Safely get configuration value
+    def validate_input(self, data):
+        """
+        Validate input data.
         
         Args:
-            key: Configuration key to retrieve
-            default: Default value if key not found
+            data: Input data to validate
+            
+        Raises:
+            ValueError: If data is invalid
         """
-        return self.config.get(key, default)
+        if data is None:
+            raise ValueError("Input data cannot be None")
 
-class BaseModel:
-    """Base class for model components"""
-    
+class BaseModel(ABC):
+    """
+    Base class for all models in the CLV pipeline.
+    """
     def __init__(self, config):
-        """Initialize base model
+        """
+        Initialize base model.
         
         Args:
-            config: Configuration object
+            config: Configuration object or dict containing model settings
         """
-        self.config = config
-        self.hyper_priors = {}
-        self.group_params = {}
-        self.coef_priors = {}
-        self.convergence_history = []
-        
+        self._config = config
+        self._model = None
+        self._validate_config()
+        logger.debug(f"Initialized {self.__class__.__name__} with config")
+
+    def _validate_config(self):
+        """Validate the configuration"""
+        if self._config is None:
+            raise ValueError("Configuration cannot be None")
+
+    @property
+    def config(self):
+        """Get configuration"""
+        return self._config
+
+    @property
+    def model(self):
+        """Get the underlying model"""
+        return self._model
+
     @abstractmethod
-    def build_model(self, data: Dict[str, Any]) -> Any:
-        """Build the model"""
-        pass
+    def build_model(self, data):
+        """
+        Build the model. Must be implemented by child classes.
         
+        Args:
+            data: Input data for model building
+            
+        Returns:
+            Built model
+            
+        Raises:
+            NotImplementedError: If child class doesn't implement this method
+        """
+        raise NotImplementedError("Subclasses must implement build_model method")
+
     @abstractmethod
-    def train_model(self, data: Dict[str, Any]) -> None:
-        """Train the model"""
-        pass
+    def predict(self, data):
+        """
+        Make predictions. Must be implemented by child classes.
         
-    @abstractmethod
-    def evaluate_model(self, test_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Evaluate the model"""
-        pass
+        Args:
+            data: Input data for predictions
+            
+        Returns:
+            Model predictions
+            
+        Raises:
+            NotImplementedError: If child class doesn't implement this method
+        """
+        raise NotImplementedError("Subclasses must implement predict method")
 
 class BaseSegmentation(BaseProcessor):
     def __init__(self, config):

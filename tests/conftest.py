@@ -18,76 +18,79 @@ from unittest.mock import MagicMock
 CATEGORIES = ['Electronics', 'Clothing', 'Food', 'Home']
 BRANDS = ['BrandA', 'BrandB', 'BrandC', 'BrandD']
 
-class SimpleConfigLoader:
-    def __init__(self):
-        self.pipeline_config = {
-            'data_processing': {
-                'preprocessing': {
-                    'feature_columns': ['frequency', 'recency', 'monetary'],
-                    'target_column': 'customer_value'
-                },
-                'feature_engineering': {
-                    'transforms': ['log', 'standardize'],
-                    'interaction_terms': True,
-                    'polynomial_degree': 2
-                }
-            },
-            'storage': {
-                'model_path': 'models/',
-                'data_path': 'data/',
-                'gcs': {
-                    'bucket_name': 'test-bucket',
-                    'project_id': 'test-project'
-                }
-            },
-            'visualization': {
-                'plot_style': 'seaborn',
-                'figure_size': (10, 6)
-            },
-            'model': {
-                'hyperparameters': {
-                    'prior_settings': {
-                        'alpha_shape': 1.0,
-                        'beta_shape': 1.0
-                    }
-                }
-            },
-            'segment_config': {
-                'n_segments': 3,
-                'features': ['recency', 'frequency', 'monetary'],
-                'method': 'kmeans'
-            }
-        }
-        
-    def get(self, key, default=None):
-        """Get configuration value by key
-        
-        Args:
-            key: Configuration key to retrieve
-            default: Default value if key not found
-            
-        Returns:
-            Configuration value or default
-        """
-        # Handle nested keys with dot notation
-        if '.' in key:
-            keys = key.split('.')
-            value = self.pipeline_config
-            for k in keys:
-                if isinstance(value, dict):
-                    value = value.get(k, default)
-                else:
-                    return default
-            return value
-        
-        # Handle top level keys
-        if key in self.pipeline_config:
-            return self.pipeline_config[key]
-        return default
-
 @pytest.fixture
 def config_loader():
-    return SimpleConfigLoader()
+    """Create a mock config loader for testing"""
+    class MockConfigLoader:
+        def __init__(self):
+            self.pipeline_config = {
+                'data_processing': {
+                    'preprocessing': {
+                        'feature_columns': ['frequency', 'recency', 'monetary'],
+                        'target_column': 'customer_value'
+                    },
+                    'feature_engineering': {
+                        'transforms': ['log', 'standardize'],
+                        'interaction_terms': True,
+                        'polynomial_degree': 2
+                    }
+                },
+                'storage': {
+                    'model_path': 'models/',
+                    'data_path': 'data/',
+                    'gcs': {
+                        'bucket_name': 'test-bucket',
+                        'project_id': 'test-project'
+                    }
+                },
+                'visualization': {
+                    'plot_style': 'seaborn',
+                    'figure_size': (10, 6)
+                },
+                'model': {
+                    'hyperparameters': {
+                        'prior_settings': {
+                            'alpha_shape': 1.0,
+                            'beta_shape': 1.0
+                        }
+                    }
+                },
+                'segment_rules': {
+                    'rfm': {
+                        'recency_bins': [0, 30, 60, 90],
+                        'frequency_bins': [1, 2, 3, 4],
+                        'monetary_bins': [0, 100, 500, 1000]
+                    }
+                },
+                'segment_config': {
+                    'n_segments': 3,
+                    'features': ['recency', 'frequency', 'monetary'],
+                    'method': 'kmeans'
+                }
+            }
+            self.config = self.pipeline_config  # For backward compatibility
+            
+        def get(self, key, default=None):
+            """Get configuration value by key"""
+            # Handle nested keys with dot notation
+            if '.' in key:
+                keys = key.split('.')
+                value = self.pipeline_config
+                for k in keys:
+                    if isinstance(value, dict):
+                        value = value.get(k, default)
+                    else:
+                        return default
+                return value
+            
+            # Handle top level keys
+            return self.pipeline_config.get(key, default)
+            
+        def get_config(self, key, default=None):
+            """Alias for get() method for backward compatibility"""
+            return self.get(key, default)
+            
+    return MockConfigLoader()
 
 @pytest.fixture
 def sample_model_data():
@@ -155,23 +158,3 @@ def sample_customer_features():
         'transaction_date': pd.date_range(start='2023-01-01', periods=n_samples),
         'is_loyalty_member': np.random.choice([0, 1], n_samples)
     }) 
-
-@pytest.fixture
-def config_loader():
-    """Create a mock config loader for testing"""
-    class MockConfigLoader:
-        def __init__(self):
-            self.config = {
-                'segment_rules': {
-                    'rfm': {
-                        'recency_bins': [0, 30, 60, 90],
-                        'frequency_bins': [1, 2, 3, 4],
-                        'monetary_bins': [0, 100, 500, 1000]
-                    }
-                }
-            }
-        
-        def get_config(self, key, default=None):
-            return self.config.get(key, default)
-            
-    return MockConfigLoader() 
