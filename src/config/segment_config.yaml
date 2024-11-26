@@ -5,4 +5,11 @@ segmentation:
     - "recency"
     - "frequency"
     - "monetary"
-  scaling: "standard" 
+    - "average_order_value"
+    - "purchase_frequency"
+  scaling: "standard"
+  storage:
+    bucket: "gs://your-segmentation-artifacts"
+  compute:
+    machine_type: "n1-standard-4"
+    disk_size_gb: 100 

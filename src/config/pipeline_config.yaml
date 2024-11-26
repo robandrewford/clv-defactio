@@ -1,12 +1,25 @@
 # Pipeline Configuration Settings
 pipeline:
+  project_id: "your-gcp-project-id"
+  region: "us-central1"
+  
   input:
     table: "customer_transactions"
     dataset: "clv_data"
-    project: "your-project-id"
+    
   output:
-    bucket: "gs://your-bucket"
+    bucket: "gs://your-output-bucket"
     prefix: "clv_predictions"
+  
   processing:
     batch_size: 1000
     workers: 4
+    
+  vertex_ai:
+    pipeline_root: "gs://your-pipeline-root"
+    service_account: "your-service-account@your-project.iam.gserviceaccount.com"
+    network: "your-vpc-network"
+    
+  monitoring:
+    enable_logging: true
+    log_level: "INFO"

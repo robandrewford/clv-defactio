@@ -3,7 +3,11 @@ name = "clv-defactio"
 version = "0.1.0"
 description = "Customer Lifetime Value Prediction System"
 authors = ["Rob Ford <rob.ford@defacto.com>"]
-package-mode = false
+package-mode = true
+
+packages = [
+    { include = "src" }
+]
 
 [tool.poetry.dependencies]
 python = ">=3.11.7,<3.12"
@@ -32,6 +36,9 @@ statsmodels = "^0.14.0"
 memory-profiler = "^0.61.0"
 setuptools = "^75.6.0"
 python-dotenv = "^1.0.1"
+requests = "^2.32.3"
+google-cloud-aiplatform = "^1.73.0"
+google-api-python-client = "^2.154.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
@@ -63,7 +70,7 @@ profile = "black"
 multi_line_output = 3
 
 [tool.poetry.scripts]
-test = "pytest:main"
-test-convergence = "pytest tests/test_clv/test_model_diagnostics.py"
-test-performance = "pytest tests/test_clv/test_performance.py"
-test-integration = "pytest tests/test_clv/test_integration.py"
+test = "src.scripts.run_tests:main"
+test-convergence = "src.scripts.run_tests:main"
+test-performance = "src.scripts.run_tests:main"
+test-integration = "src.scripts.run_tests:main"

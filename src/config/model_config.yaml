@@ -1,7 +1,21 @@
 model_type: "hierarchical_clv"
-parameters:
-  chains: 4
-  draws: 2000
-  tune: 1000
-  target_accept: 0.8
-  random_seed: 42
+storage:
+  bucket_name: "logic-dna-240402.appspot.com"
+  model_id: "3960638795342151680"
+
+training:
+  parameters:
+    chains: 4
+    draws: 2000
+    tune: 1000
+    target_accept: 0.8
+    random_seed: 42
+  
+  resources:
+    machine_type: "n1-standard-8"
+    accelerator_type: "NVIDIA_TESLA_T4"  # if using GPU
+    accelerator_count: 1
+
+versioning:
+  enable_versioning: true
+  retention_days: 90
