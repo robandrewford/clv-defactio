@@ -474,13 +474,13 @@ pandas = ["pandas (>=1.5.3,<2.2)", "pandas (>=2.1.2,<2.2)"]
 
 [[package]]
 name = "apache-airflow-providers-fab"
-version = "1.5.1"
+version = "1.5.2"
 description = "Provider package apache-airflow-providers-fab for Apache Airflow"
 optional = false
 python-versions = "~=3.9"
 files = [
-    {file = "apache_airflow_providers_fab-1.5.1-py3-none-any.whl", hash = "sha256:a2aed5b3f9ddcd1c6c5b2cacb96662cc1c6fa05fb7666b6a9c98abfe8acbed02"},
-    {file = "apache_airflow_providers_fab-1.5.1.tar.gz", hash = "sha256:b0f253612254c458817b662211cbfa5204159ec938b0a925954328c9831e291e"},
+    {file = "apache_airflow_providers_fab-1.5.2-py3-none-any.whl", hash = "sha256:62180f0f2cab0060b4370bda43040fe1ebdeb656297de797b1bc846cfe7d63e3"},
+    {file = "apache_airflow_providers_fab-1.5.2.tar.gz", hash = "sha256:22744241fd8f5dfd4575f02775afa00b3a965b04799b67fd0a42678f994ec3ba"},
 ]
 
 [package.dependencies]
